@@ -1,0 +1,25 @@
+{
+  "name": "primitive-db",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sukairo-02/Lambda-trainee.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Sukairo-02/Lambda-trainee/issues"
+  },
+  "homepage": "https://github.com/Sukairo-02/Lambda-trainee#readme",
+  "devDependencies": {
+    "nodemon": "^2.0.16"
+  },
+  "dependencies": {
+    "inquirer": "^8.2.4"
+  }
+}
