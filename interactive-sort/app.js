@@ -1,4 +1,4 @@
-const readline = require('readline') //standart node lib
+const readline = require('readline') //standard node lib
 
 const question = (question) => {
 	const rl = readline.createInterface({
