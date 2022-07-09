@@ -1,0 +1,21 @@
+{
+    "server": {
+        "PORT": 3000
+    },
+
+    "apiKeys": {
+        "coinMarketCap": "d5e08285-6b3c-49ef-b0e1-f4476af134f6"
+    },
+
+    "telegram": {
+        "bot": "2126303986:AAGVIT5x-skAGNaIAwUGMJFVgozIztTN434"
+    },
+
+    "db": {
+        "user": "Sukairo",
+        "password": "Me-Admin-Not-ROOT",
+        "host": "localhost",
+        "port": 3306,
+        "database": "testdb"
+    }
+}
