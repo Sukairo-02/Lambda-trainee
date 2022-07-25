@@ -21,7 +21,7 @@ router.get('/average', [xtractApis, xtractPeriod, xtractSymbols], async (req: Re
 	if (
 		req.period &&
 		(<[]>result)?.length <
-			(req.symbols?.accepted.length ? req.symbols.accepted.length : cryptoList.length) *
+			(req.symbols?.accepted?.length ? req.symbols.accepted.length : cryptoList.length) *
 				Math.floor(Math.abs(req.period[1].getTime() - req.period[0].getTime()) / 300000)
 	) {
 		return res.json({ result, apis: req.apis, symbols: req.symbols, warning: dataLackWarning })
