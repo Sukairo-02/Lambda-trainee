@@ -6,6 +6,7 @@ import cron from 'node-cron'
 import db from '@util/dbApi'
 import dataCollector from '@util/dataCollector'
 import apiRouter from '@routes/api'
+import botRouter from '@routes/bot'
 
 import type { ErrorRequestHandler } from 'express'
 import type { dbConfig } from '@util/dbApi/types'
@@ -17,6 +18,7 @@ const dbConfig = config.get<dbConfig>('db')
 app.use(express.json())
 
 app.use('/api', apiRouter)
+app.use('/bot', botRouter)
 
 app.use(<ErrorRequestHandler>((err, req, res, next) => {
 	console.error(err.stack)

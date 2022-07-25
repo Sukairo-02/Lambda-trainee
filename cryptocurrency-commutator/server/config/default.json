@@ -17,5 +17,13 @@
         "host": "localhost",
         "port": 3306,
         "database": "testdb"
+    },
+
+    "dbBot": {
+        "user": "Sukairo",
+        "password": "Me-Admin-Not-ROOT",
+        "host": "localhost",
+        "port": 3306,
+        "database": "dbBot"
     }
 }

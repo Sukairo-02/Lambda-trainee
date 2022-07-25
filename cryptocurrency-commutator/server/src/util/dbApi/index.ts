@@ -185,9 +185,9 @@ class dbApi {
 							? `(symbol = ${mysql2.escape(symbol.shift())}${symbol.reduce(
 									(p, e) => `${p} OR symbol = ${mysql2.escape(e)}`,
 									''
-							  )}`
+							  )})`
 							: ''
-					} ${(symbol ?? false) && period ? ') AND' : ''} ${
+					} ${(symbol ?? false) && period ? ' AND' : ''} ${
 						period
 							? `timestamp BETWEEN '${toSqlDatetime(period[0])}' AND '${toSqlDatetime(period[1])}' `
 							: ''

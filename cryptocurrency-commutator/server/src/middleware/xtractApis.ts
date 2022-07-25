@@ -4,7 +4,7 @@ import apiList from '@util/lists/apiList'
 declare global {
 	namespace Express {
 		interface Request {
-			apis?: {
+			apis: {
 				accepted: string[]
 				dismissed: string[]
 			}
@@ -25,14 +25,12 @@ export = <RequestHandler>((req, res, next) => {
 		dismissed: []
 	}
 
-	;(<string | undefined>req.query.apis)
-		?.split(',')
-		.forEach((e) => (apiList.has(e) ? result.accepted.push(e) : result.dismissed.push(e)))
+	const apis = (<string | undefined>req.query.apis)?.split(',').map((e) => e.toLowerCase())
+
+	apis?.forEach((e) => (apiList.has(e) ? result.accepted.push(e) : result.dismissed.push(e)))
 
 	if (req.query.apis && !result.accepted.length) {
-		return res.status(403).json({
-			errors: { message: 'APIs have been requested, but none of the valid found', dismissed: result.dismissed }
-		})
+		return res.status(403).json(result)
 	}
 
 	req.apis = result

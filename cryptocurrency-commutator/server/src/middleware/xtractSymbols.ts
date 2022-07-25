@@ -4,7 +4,7 @@ import cryptoList from '@util/lists/cryptoList'
 declare global {
 	namespace Express {
 		interface Request {
-			symbols?: {
+			symbols: {
 				accepted: string[]
 				dismissed: string[]
 			}
@@ -30,13 +30,7 @@ export = <RequestHandler>((req, res, next) => {
 		.forEach((e) => (cryptoList.find((el) => el.symbol === e) ? result.accepted.push(e) : result.dismissed.push(e)))
 
 	if (req.query.symbols && !result.accepted.length) {
-		return res.status(403).json({
-			result: [],
-			errors: {
-				message: 'Symbols have been requested, but none of the valid found',
-				dismissed: result.dismissed
-			}
-		})
+		return res.status(403).json(result)
 	}
 
 	req.symbols = result
