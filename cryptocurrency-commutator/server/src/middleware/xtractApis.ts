@@ -29,12 +29,12 @@ export = <RequestHandler>((req, res, next) => {
 
 	apis?.forEach((e) => (apiList.has(e) ? result.accepted?.push(e) : result.dismissed?.push(e)))
 
-	if (req.query.apis && !result.accepted?.length) {
-		return res.status(403).json({ apis: result })
-	}
-
 	if (!result.accepted?.length) {
 		result.accepted = undefined
+	}
+
+	if (req.query.apis && !result.accepted?.length) {
+		return res.status(403).json({ apis: result })
 	}
 
 	if (!result.dismissed?.length) {
