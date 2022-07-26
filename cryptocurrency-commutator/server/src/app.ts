@@ -44,18 +44,10 @@ start()
 
 cron.schedule('0 */5 * * * *', async () => {
 	try {
-		await db.connect(dbConfig) //Finally triggers before program exits, have to reopen db connection on use
+		await db.connect(dbConfig)
 		await db.store(await dataCollector())
 		await db.disconnect()
 	} catch (e) {
 		console.log(e)
 	}
 })
-
-//TO-DO
-//patch db adapter for arrays - DONE
-//implement period logic - DONE
-//hook db to REST - DONE
-//bot's db
-//REST for bot's db
-//patch old cryptobot for new architecture

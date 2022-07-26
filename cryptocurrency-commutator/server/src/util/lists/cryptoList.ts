@@ -25,21 +25,6 @@ export = [
 		name: 'usd-coin',
 		id: 'usdc-usd-coin'
 	},
-	// {
-	// 	symbol: 'BNB', //TO BE DELETED
-	// 	name: 'binance-coin',
-	// 	id: 'bnb-binance-coin'
-	// },
-	// {
-	// 	symbol: 'BUSD', //TO BE DELETED
-	// 	name: 'binance-usd',
-	// 	id: 'busd-binance-usd'
-	// },
-	// {
-	// 	symbol: 'XRP', //TO BE DELETED
-	// 	name: 'ripple',
-	// 	id: 'xrp-xrp'
-	// },
 	{
 		symbol: 'ADA',
 		name: 'cardano',
@@ -65,21 +50,11 @@ export = [
 		name: 'dai',
 		id: 'dai-dai'
 	},
-	// {
-	// 	symbol: 'TRX', //TO BE DELETED
-	// 	name: 'tron',
-	// 	id: 'trx-tron'
-	// },
 	{
 		symbol: 'SHIB',
 		name: 'shiba-inu',
 		id: 'shib-shiba-inu'
 	},
-	// {
-	// 	symbol: 'LEO', //TO BE DELETED
-	// 	name: 'leo',
-	// 	id: 'leo-leo-token'
-	// },
 	{
 		symbol: 'WBTC',
 		name: 'wrapped-bitcoin',

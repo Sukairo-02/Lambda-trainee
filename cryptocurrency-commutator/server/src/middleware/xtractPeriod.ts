@@ -14,14 +14,6 @@ export = <RequestHandler>((req, res, next) => {
 		return next()
 	}
 
-	// if (
-	// 	(req.query.periodBegin &&
-	// 		!(req.query.periodBegin instanceof String || typeof req.query.periodBegin === 'string')) ||
-	// 	(req.query.periodEnd && !(req.query.periodEnd instanceof String || typeof req.query.periodEnd === 'string'))
-	// ) {
-	// 	return res.status(403).send('Invalid period!')
-	// }
-
 	const validated: [Date, Date] = [
 		new Date(<string>req.query.periodBegin),
 		new Date(<string>req.query.periodEnd || new Date())
