@@ -1,0 +1,2830 @@
+commit 840e17387d55bba292aa630b69704df5c09cf44b
+Author: Sukairo-02 <reka.serzh@yandex.ru>
+Date:   Fri Jul 29 11:20:56 2022 +0300
+
+    Adjusted DB adapters for connection pools, minor fixes
+
+diff --git a/cryptocurrency-commutator/bot/Procfile b/cryptocurrency-commutator/bot/Procfile
+new file mode 100644
+index 0000000..0f3f8ad
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/Procfile
+@@ -0,0 +1 @@
++web: npm i && npx tsc && node compiled/app.js
+\ No newline at end of file
+diff --git a/cryptocurrency-commutator/bot/compiled/app.js b/cryptocurrency-commutator/bot/compiled/app.js
+new file mode 100644
+index 0000000..252b872
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/compiled/app.js
+@@ -0,0 +1,41 @@
++"use strict";
++var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
++    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
++    return new (P || (P = Promise))(function (resolve, reject) {
++        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
++        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
++        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
++        step((generator = generator.apply(thisArg, _arguments || [])).next());
++    });
++};
++var __importDefault = (this && this.__importDefault) || function (mod) {
++    return (mod && mod.__esModule) ? mod : { "default": mod };
++};
++Object.defineProperty(exports, "__esModule", { value: true });
++require("module-alias/register");
++const config_1 = __importDefault(require("config"));
++const tgBot_1 = __importDefault(require("@util/tgBot"));
++const PORT = Number(process.env.PORT) || config_1.default.get('server.PORT') || 3000;
++const url = config_1.default.get('server.URL');
++const botToken = config_1.default.get('tg.bot');
++const start = () => __awaiter(void 0, void 0, void 0, function* () {
++    try {
++        (0, tgBot_1.default)(botToken, PORT, url);
++    }
++    catch (e) {
++        console.log(e);
++    }
++});
++start();
++process.on('unhandledRejection', (reason, promise) => {
++    console.log(reason, '\n', promise);
++});
++process.on('uncaughtException', (e, o) => {
++    console.log('UNCAUGHT:', e, '\n', o);
++});
++//TO-DO
++//Get rid of old code - DONE
++//Copy tgbot lib's types - DONE
++//Reconfigure tsconfig for "@" imports - DONE
++//Connect to api
++//Implement + Connect db on server side
+diff --git a/cryptocurrency-commutator/bot/compiled/util/queryProcessor/index.js b/cryptocurrency-commutator/bot/compiled/util/queryProcessor/index.js
+new file mode 100644
+index 0000000..89db868
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/compiled/util/queryProcessor/index.js
+@@ -0,0 +1,232 @@
++"use strict";
++var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
++    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
++    return new (P || (P = Promise))(function (resolve, reject) {
++        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
++        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
++        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
++        step((generator = generator.apply(thisArg, _arguments || [])).next());
++    });
++};
++var __importDefault = (this && this.__importDefault) || function (mod) {
++    return (mod && mod.__esModule) ? mod : { "default": mod };
++};
++const axios_1 = __importDefault(require("axios"));
++const config_1 = __importDefault(require("config"));
++const apiUrl = config_1.default.get('api.URL');
++const respond = (token, chatID, text, markup) => __awaiter(void 0, void 0, void 0, function* () {
++    try {
++        yield axios_1.default.post(`https://api.telegram.org/bot${token}/sendMessage`, {
++            chat_id: chatID,
++            parse_mode: 'HTML',
++            text,
++            reply_markup: JSON.stringify(markup)
++        });
++    }
++    catch (e) {
++        console.log(e);
++    }
++});
++const invalidCurrencyResponse = (token, chatID, symbolList) => __awaiter(void 0, void 0, void 0, function* () {
++    try {
++        if (!symbolList || !symbolList.length) {
++            console.log(symbolList);
++            throw new Error(`Api error: request rejected, but no invalid symbols specified.`);
++        }
++        const resMsg = `Invalid currency(-ies): ${symbolList.join(', ')}.\nRefer to /listrecent to get list of supported currencies.`;
++        yield respond(token, chatID, resMsg);
++    }
++    catch (e) {
++        console.log(e);
++    }
++});
++const getAvgFromApis = (source) => {
++    const isPrice = new RegExp(/Price$/);
++    return source.reduce((p, e) => {
++        let accum = 0;
++        let amt = 0;
++        for (const [key, value] of Object.entries(e)) {
++            if (isPrice.test(key) && !isNaN(Number(value))) {
++                amt++;
++                accum += Number(value);
++            }
++        }
++        p.push({ symbol: e.symbol, price: accum / amt });
++        return p;
++    }, []);
++};
++const listToBoard = (list) => {
++    return {
++        inline_keyboard: list.reduce((p, e) => {
++            p.push([
++                {
++                    text: e,
++                    callback_data: `/${e}`
++                },
++                {
++                    text: '❌',
++                    callback_data: `/deletefavorite ${e}`
++                }
++            ]);
++            return p;
++        }, [])
++    };
++};
++module.exports = (token, query, userID, chatID, messageID, isQuery) => __awaiter(void 0, void 0, void 0, function* () {
++    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
++    try {
++        if (!query[0] || query[0][0] !== '/') {
++            return;
++        } //ignore non-command messages
++        switch (query[0]) {
++            case '/start':
++                return yield respond(token, chatID, 'Welcome to the world of crypto! Send /help to see your options...');
++            case '/help': {
++                return yield respond(token, chatID, "Here's what you can do:\n/listrecent - Latest data of supported currencies\n/{*currency_name} - Get detailed info about crypto of your choice ex: <code>/BTC</code>\n/addfavorite {*currency_name} - Add crypto to favorites\n/deletefavorite {*currency_name} - Delete crypto from favorites\n/listfavorite - Look at your favorites\n\n<i>* - supports comma-separated list\nex: <code>/addfavorite BTC,ETH,ETC</code></i>");
++            }
++            case '/listrecent': {
++                try {
++                    const recent = (yield axios_1.default.get(`${apiUrl}/api/period`)).data.result;
++                    if (!recent) {
++                        throw new Error('Api error: empty response');
++                    }
++                    const packed = getAvgFromApis(recent);
++                    const resMsg = packed.reduce((p, e) => {
++                        return p + `\n/${e.symbol} - <code>$${e.price}</code>`;
++                    }, 'Here are latest stored values of supported currencies:');
++                    return yield respond(token, chatID, resMsg);
++                }
++                catch (e) {
++                    console.log(e);
++                    return yield respond(token, chatID, 'Data api error. Try again later...');
++                }
++            }
++            case '/addfavorite': {
++                if (!query[1]) {
++                    return yield respond(token, chatID, 'You must specify currency!');
++                }
++                const response = yield axios_1.default.post(`${apiUrl}/bot/favorites`, {
++                    user: String(userID),
++                    symbols: query[1]
++                }, {
++                    headers: {
++                        Authorization: `Bearer ${token}`
++                    }
++                });
++                let resMsg = `Succesfully added currency(-ies) to favorites!${((_b = (_a = response.data.symbols) === null || _a === void 0 ? void 0 : _a.dismissed) === null || _b === void 0 ? void 0 : _b.length)
++                    ? `\nInvalid currency(-ies) skipped: ${response.data.symbols.dismissed.join(', ')}`
++                    : ''}`;
++                return yield respond(token, chatID, resMsg);
++            }
++            case '/deletefavorite': {
++                if (!query[1]) {
++                    return yield respond(token, chatID, 'You must specify currency!');
++                }
++                const response = yield axios_1.default.delete(`${apiUrl}/bot/favorites`, {
++                    headers: {
++                        Authorization: `Bearer ${token}`
++                    },
++                    data: {
++                        user: String(userID),
++                        symbols: query[1]
++                    }
++                });
++                if (isQuery) {
++                    if ((_c = response.data.favorites) === null || _c === void 0 ? void 0 : _c.length) {
++                        return yield axios_1.default.post(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
++                            chat_id: chatID,
++                            message_id: messageID,
++                            reply_markup: JSON.stringify(listToBoard(response.data.favorites.split(',')))
++                        });
++                    }
++                    else {
++                        return yield axios_1.default.post(`https://api.telegram.org/bot${token}/deleteMessage`, {
++                            chat_id: chatID,
++                            message_id: messageID
++                        });
++                    }
++                }
++                else {
++                    let resMsg = `Succesfully deleted currency(-ies) from favorites!${((_e = (_d = response.data.symbols) === null || _d === void 0 ? void 0 : _d.dismissed) === null || _e === void 0 ? void 0 : _e.length)
++                        ? `\nInvalid currency(-ies) skipped: ${response.data.symbols.dismissed.join(', ')}`
++                        : ''}`;
++                    return yield respond(token, chatID, resMsg);
++                }
++            }
++            case '/listfavorite': {
++                const favorites = yield ((_f = (yield axios_1.default.get(`${apiUrl}/bot/favorites?user=${userID}`, {
++                    headers: {
++                        Authorization: `Bearer ${token}`
++                    }
++                })).data.favorites) === null || _f === void 0 ? void 0 : _f.split(','));
++                if (!favorites || !favorites.length) {
++                    return yield respond(token, chatID, `Your favorites are currently empty`);
++                }
++                const keyboard = listToBoard(favorites);
++                return yield respond(token, chatID, `Here's the list of your favorites:`, keyboard);
++            }
++            default: {
++                const symbols = query[0].substring(1).split(',');
++                const nowJSON = new Date().toJSON();
++                const JSONDates = [
++                    new Date(Date.now() - 1800000).toJSON(),
++                    new Date(Date.now() - 3600000).toJSON(),
++                    new Date(Date.now() - 10800000).toJSON(),
++                    new Date(Date.now() - 21600000).toJSON(),
++                    new Date(Date.now() - 43200000).toJSON(),
++                    new Date(Date.now() - 86400000).toJSON()
++                ];
++                const timeStrings = ['30m', '1h', '3h', '6h', '12h', '24h'];
++                for (let i = 0; i < symbols.length; ++i) {
++                    const symbol = symbols[i];
++                    try {
++                        const apiResponse = [
++                            axios_1.default.get(`${apiUrl}/api/period?symbols=${symbol}`),
++                            axios_1.default.get(`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[0]}&periodEnd=${nowJSON}`),
++                            axios_1.default.get(`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[1]}&periodEnd=${nowJSON}`),
++                            axios_1.default.get(`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[2]}&periodEnd=${nowJSON}`),
++                            axios_1.default.get(`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[3]}&periodEnd=${nowJSON}`),
++                            axios_1.default.get(`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[4]}&periodEnd=${nowJSON}`),
++                            axios_1.default.get(`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[5]}&periodEnd=${nowJSON}`)
++                        ];
++                        const awaited = []; //Aware of incorrect type usage, can't init empty array with [AxiosResponse<apiPeriod> | AxiosResponse<apiAverage>]
++                        for (const e of apiResponse) {
++                            try {
++                                awaited.push(yield e);
++                            }
++                            catch (er) {
++                                console.log(er);
++                            }
++                        }
++                        if (!awaited.every((e) => { var _a; return (_a = e.data.result) === null || _a === void 0 ? void 0 : _a.length; })) {
++                            yield respond(token, chatID, `/${symbol}: no data yet, try again later...`);
++                        }
++                        const warning = awaited.some((e) => e.data.warning);
++                        const mapped = awaited.map((e) => getAvgFromApis(e.data.result));
++                        const resMsg = `${mapped.reduce((p, e, i) => {
++                            return p + `\n\t/${timeStrings[i]} - <code>$${e[0].price}</code>`;
++                        }, `/${symbol} - <code>${mapped.shift()[0].price}$</code>\nAverage values:`)}${warning ? `\nWarning: missing some data during 24h period, values may be incorrect.` : ''}`;
++                        yield respond(token, chatID, resMsg);
++                    }
++                    catch (e) {
++                        if (((_g = e === null || e === void 0 ? void 0 : e.response) === null || _g === void 0 ? void 0 : _g.status) !== 403) {
++                            console.log(e);
++                            yield respond(token, chatID, `${symbol}: internal server error. Try again later...`);
++                        }
++                        const dismissedList = (_j = (_h = e === null || e === void 0 ? void 0 : e.response) === null || _h === void 0 ? void 0 : _h.data.symbols) === null || _j === void 0 ? void 0 : _j.dismissed;
++                        yield invalidCurrencyResponse(token, chatID, dismissedList);
++                    }
++                    return;
++                }
++            }
++        }
++    }
++    catch (e) {
++        if (((_k = e === null || e === void 0 ? void 0 : e.response) === null || _k === void 0 ? void 0 : _k.status) !== 403) {
++            console.log(e);
++            return yield respond(token, chatID, 'Internal server error. Try again later...');
++        }
++        const dismissedList = (_m = (_l = e === null || e === void 0 ? void 0 : e.response) === null || _l === void 0 ? void 0 : _l.data.symbols) === null || _m === void 0 ? void 0 : _m.dismissed;
++        return yield invalidCurrencyResponse(token, chatID, dismissedList);
++    }
++});
+diff --git a/cryptocurrency-commutator/bot/compiled/util/tgBot/index.js b/cryptocurrency-commutator/bot/compiled/util/tgBot/index.js
+new file mode 100644
+index 0000000..67db311
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/compiled/util/tgBot/index.js
+@@ -0,0 +1,79 @@
++"use strict";
++var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
++    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
++    return new (P || (P = Promise))(function (resolve, reject) {
++        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
++        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
++        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
++        step((generator = generator.apply(thisArg, _arguments || [])).next());
++    });
++};
++var __importDefault = (this && this.__importDefault) || function (mod) {
++    return (mod && mod.__esModule) ? mod : { "default": mod };
++};
++const axios_1 = __importDefault(require("axios"));
++const express_1 = __importDefault(require("express"));
++const queryProcessor_1 = __importDefault(require("@util/queryProcessor"));
++const app = (0, express_1.default)();
++app.use(express_1.default.json());
++let localToken;
++const botProc = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
++    var _a, _b;
++    try {
++        const msg = req.body;
++        if (!msg || !msg.update_id) {
++            return res.sendStatus(200);
++        }
++        let chatID;
++        let userID;
++        let messageID;
++        let rawQuery;
++        let isQuery = false;
++        if (msg.message) {
++            chatID = msg.message.chat.id;
++            userID = (_a = msg.message.from) === null || _a === void 0 ? void 0 : _a.id;
++            messageID = msg.message.message_id;
++            rawQuery = msg.message.text;
++        }
++        else if (msg.callback_query) {
++            chatID = msg.callback_query.from.id;
++            userID = msg.callback_query.from.id;
++            messageID = (_b = msg.callback_query.message) === null || _b === void 0 ? void 0 : _b.message_id;
++            rawQuery = msg.callback_query.data;
++            isQuery = true;
++        }
++        else {
++            return res.sendStatus(200);
++        }
++        const query = rawQuery === null || rawQuery === void 0 ? void 0 : rawQuery.split(' ');
++        if (!query) {
++            return res.sendStatus(200);
++        }
++        if (typeof userID !== 'number' || typeof chatID !== 'number' || typeof messageID !== 'number') {
++            return res.sendStatus(200);
++        }
++        yield (0, queryProcessor_1.default)(localToken, query, userID, chatID, messageID, isQuery);
++        return res.sendStatus(200);
++    }
++    catch (e) {
++        console.log(e, req);
++        return res.sendStatus(200);
++    }
++});
++module.exports = (botToken, port, url) => __awaiter(void 0, void 0, void 0, function* () {
++    try {
++        if (!botToken || !port || !url) {
++            throw new Error('Bot error: missing data');
++        }
++        localToken = botToken;
++        app.listen(port, () => {
++            console.log(`Bot: listening to port ${port}`);
++        });
++        app.post(`/bot${botToken}`, botProc);
++        yield axios_1.default.post(`https://api.telegram.org/bot${botToken}/setWebhook`, { url: `${url}/bot${botToken}` });
++        console.log(`Bot: webhook set to url: ${url}/bot${botToken}`);
++    }
++    catch (e) {
++        console.log(e);
++    }
++});
+diff --git a/cryptocurrency-commutator/bot/config/default.json b/cryptocurrency-commutator/bot/config/default.json
+new file mode 100644
+index 0000000..d6f2268
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/config/default.json
+@@ -0,0 +1,14 @@
++{
++	"server": {
++		"PORT": 3030,
++		"URL": "https://skylotus-tg-cryptobot.herokuapp.com"
++	},
++
++	"tg": {
++		"bot": "2126303986:AAGVIT5x-skAGNaIAwUGMJFVgozIztTN434"
++	},
++	
++	"api": {
++		"URL": "https://21c1-77-109-51-122.eu.ngrok.io"
++	}
++}
+diff --git a/cryptocurrency-commutator/bot/config/production.json b/cryptocurrency-commutator/bot/config/production.json
+new file mode 100644
+index 0000000..d6f2268
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/config/production.json
+@@ -0,0 +1,14 @@
++{
++	"server": {
++		"PORT": 3030,
++		"URL": "https://skylotus-tg-cryptobot.herokuapp.com"
++	},
++
++	"tg": {
++		"bot": "2126303986:AAGVIT5x-skAGNaIAwUGMJFVgozIztTN434"
++	},
++	
++	"api": {
++		"URL": "https://21c1-77-109-51-122.eu.ngrok.io"
++	}
++}
+diff --git a/cryptocurrency-commutator/bot/package-lock.json b/cryptocurrency-commutator/bot/package-lock.json
+new file mode 100644
+index 0000000..da10ca4
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/package-lock.json
+@@ -0,0 +1,1355 @@
++{
++  "name": "cryptocurrency-commutator-bot",
++  "version": "1.0.0",
++  "lockfileVersion": 2,
++  "requires": true,
++  "packages": {
++    "": {
++      "name": "cryptocurrency-commutator-bot",
++      "version": "1.0.0",
++      "license": "ISC",
++      "dependencies": {
++        "@types/axios": "^0.14.0",
++        "@types/config": "^0.0.41",
++        "@types/express": "^4.17.13",
++        "axios": "^0.27.2",
++        "config": "^3.3.7",
++        "express": "^4.18.1",
++        "module-alias": "^2.2.2",
++        "typescript": "^4.7.4"
++      }
++    },
++    "node_modules/@types/axios": {
++      "version": "0.14.0",
++      "resolved": "https://registry.npmjs.org/@types/axios/-/axios-0.14.0.tgz",
++      "integrity": "sha512-KqQnQbdYE54D7oa/UmYVMZKq7CO4l8DEENzOKc4aBRwxCXSlJXGz83flFx5L7AWrOQnmuN3kVsRdt+GZPPjiVQ==",
++      "deprecated": "This is a stub types definition for axios (https://github.com/mzabriskie/axios). axios provides its own type definitions, so you don't need @types/axios installed!",
++      "dependencies": {
++        "axios": "*"
++      }
++    },
++    "node_modules/@types/body-parser": {
++      "version": "1.19.2",
++      "resolved": "https://registry.npmjs.org/@types/body-parser/-/body-parser-1.19.2.tgz",
++      "integrity": "sha512-ALYone6pm6QmwZoAgeyNksccT9Q4AWZQ6PvfwR37GT6r6FWUPguq6sUmNGSMV2Wr761oQoBxwGGa6DR5o1DC9g==",
++      "dependencies": {
++        "@types/connect": "*",
++        "@types/node": "*"
++      }
++    },
++    "node_modules/@types/config": {
++      "version": "0.0.41",
++      "resolved": "https://registry.npmjs.org/@types/config/-/config-0.0.41.tgz",
++      "integrity": "sha512-HjXUmIld0gwvyG8MU/17QtLzOyuMX4jbGuijmS9sWsob5xxgZ/hY9cbRCaHIHqTQ3HMLhwS3F8uXq3Bt9zgzHA=="
++    },
++    "node_modules/@types/connect": {
++      "version": "3.4.35",
++      "resolved": "https://registry.npmjs.org/@types/connect/-/connect-3.4.35.tgz",
++      "integrity": "sha512-cdeYyv4KWoEgpBISTxWvqYsVy444DOqehiF3fM3ne10AmJ62RSyNkUnxMJXHQWRQQX2eR94m5y1IZyDwBjV9FQ==",
++      "dependencies": {
++        "@types/node": "*"
++      }
++    },
++    "node_modules/@types/express": {
++      "version": "4.17.13",
++      "resolved": "https://registry.npmjs.org/@types/express/-/express-4.17.13.tgz",
++      "integrity": "sha512-6bSZTPaTIACxn48l50SR+axgrqm6qXFIxrdAKaG6PaJk3+zuUr35hBlgT7vOmJcum+OEaIBLtHV/qloEAFITeA==",
++      "dependencies": {
++        "@types/body-parser": "*",
++        "@types/express-serve-static-core": "^4.17.18",
++        "@types/qs": "*",
++        "@types/serve-static": "*"
++      }
++    },
++    "node_modules/@types/express-serve-static-core": {
++      "version": "4.17.29",
++      "resolved": "https://registry.npmjs.org/@types/express-serve-static-core/-/express-serve-static-core-4.17.29.tgz",
++      "integrity": "sha512-uMd++6dMKS32EOuw1Uli3e3BPgdLIXmezcfHv7N4c1s3gkhikBplORPpMq3fuWkxncZN1reb16d5n8yhQ80x7Q==",
++      "dependencies": {
++        "@types/node": "*",
++        "@types/qs": "*",
++        "@types/range-parser": "*"
++      }
++    },
++    "node_modules/@types/mime": {
++      "version": "1.3.2",
++      "resolved": "https://registry.npmjs.org/@types/mime/-/mime-1.3.2.tgz",
++      "integrity": "sha512-YATxVxgRqNH6nHEIsvg6k2Boc1JHI9ZbH5iWFFv/MTkchz3b1ieGDa5T0a9RznNdI0KhVbdbWSN+KWWrQZRxTw=="
++    },
++    "node_modules/@types/node": {
++      "version": "18.0.4",
++      "resolved": "https://registry.npmjs.org/@types/node/-/node-18.0.4.tgz",
++      "integrity": "sha512-M0+G6V0Y4YV8cqzHssZpaNCqvYwlCiulmm0PwpNLF55r/+cT8Ol42CHRU1SEaYFH2rTwiiE1aYg/2g2rrtGdPA=="
++    },
++    "node_modules/@types/qs": {
++      "version": "6.9.7",
++      "resolved": "https://registry.npmjs.org/@types/qs/-/qs-6.9.7.tgz",
++      "integrity": "sha512-FGa1F62FT09qcrueBA6qYTrJPVDzah9a+493+o2PCXsesWHIn27G98TsSMs3WPNbZIEj4+VJf6saSFpvD+3Zsw=="
++    },
++    "node_modules/@types/range-parser": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@types/range-parser/-/range-parser-1.2.4.tgz",
++      "integrity": "sha512-EEhsLsD6UsDM1yFhAvy0Cjr6VwmpMWqFBCb9w07wVugF7w9nfajxLuVmngTIpgS6svCnm6Vaw+MZhoDCKnOfsw=="
++    },
++    "node_modules/@types/serve-static": {
++      "version": "1.13.10",
++      "resolved": "https://registry.npmjs.org/@types/serve-static/-/serve-static-1.13.10.tgz",
++      "integrity": "sha512-nCkHGI4w7ZgAdNkrEu0bv+4xNV/XDqW+DydknebMOQwkpDGx8G+HTlj7R7ABI8i8nKxVw0wtKPi1D+lPOkh4YQ==",
++      "dependencies": {
++        "@types/mime": "^1",
++        "@types/node": "*"
++      }
++    },
++    "node_modules/accepts": {
++      "version": "1.3.8",
++      "resolved": "https://registry.npmjs.org/accepts/-/accepts-1.3.8.tgz",
++      "integrity": "sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==",
++      "dependencies": {
++        "mime-types": "~2.1.34",
++        "negotiator": "0.6.3"
++      },
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/array-flatten": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/array-flatten/-/array-flatten-1.1.1.tgz",
++      "integrity": "sha512-PCVAQswWemu6UdxsDFFX/+gVeYqKAod3D3UVm91jHwynguOwAvYPhx8nNlM++NqRcK6CxxpUafjmhIdKiHibqg=="
++    },
++    "node_modules/asynckit": {
++      "version": "0.4.0",
++      "resolved": "https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz",
++      "integrity": "sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q=="
++    },
++    "node_modules/axios": {
++      "version": "0.27.2",
++      "resolved": "https://registry.npmjs.org/axios/-/axios-0.27.2.tgz",
++      "integrity": "sha512-t+yRIyySRTp/wua5xEr+z1q60QmLq8ABsS5O9Me1AsE5dfKqgnCFzwiCZZ/cGNd1lq4/7akDWMxdhVlucjmnOQ==",
++      "dependencies": {
++        "follow-redirects": "^1.14.9",
++        "form-data": "^4.0.0"
++      }
++    },
++    "node_modules/body-parser": {
++      "version": "1.20.0",
++      "resolved": "https://registry.npmjs.org/body-parser/-/body-parser-1.20.0.tgz",
++      "integrity": "sha512-DfJ+q6EPcGKZD1QWUjSpqp+Q7bDQTsQIF4zfUAtZ6qk+H/3/QRhg9CEp39ss+/T2vw0+HaidC0ecJj/DRLIaKg==",
++      "dependencies": {
++        "bytes": "3.1.2",
++        "content-type": "~1.0.4",
++        "debug": "2.6.9",
++        "depd": "2.0.0",
++        "destroy": "1.2.0",
++        "http-errors": "2.0.0",
++        "iconv-lite": "0.4.24",
++        "on-finished": "2.4.1",
++        "qs": "6.10.3",
++        "raw-body": "2.5.1",
++        "type-is": "~1.6.18",
++        "unpipe": "1.0.0"
++      },
++      "engines": {
++        "node": ">= 0.8",
++        "npm": "1.2.8000 || >= 1.4.16"
++      }
++    },
++    "node_modules/bytes": {
++      "version": "3.1.2",
++      "resolved": "https://registry.npmjs.org/bytes/-/bytes-3.1.2.tgz",
++      "integrity": "sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==",
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/call-bind": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/call-bind/-/call-bind-1.0.2.tgz",
++      "integrity": "sha512-7O+FbCihrB5WGbFYesctwmTKae6rOiIzmz1icreWJ+0aA7LJfuqhEso2T9ncpcFtzMQtzXf2QGGueWJGTYsqrA==",
++      "dependencies": {
++        "function-bind": "^1.1.1",
++        "get-intrinsic": "^1.0.2"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/ljharb"
++      }
++    },
++    "node_modules/combined-stream": {
++      "version": "1.0.8",
++      "resolved": "https://registry.npmjs.org/combined-stream/-/combined-stream-1.0.8.tgz",
++      "integrity": "sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==",
++      "dependencies": {
++        "delayed-stream": "~1.0.0"
++      },
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/config": {
++      "version": "3.3.7",
++      "resolved": "https://registry.npmjs.org/config/-/config-3.3.7.tgz",
++      "integrity": "sha512-mX/n7GKDYZMqvvkY6e6oBY49W8wxdmQt+ho/5lhwFDXqQW9gI+Ahp8EKp8VAbISPnmf2+Bv5uZK7lKXZ6pf1aA==",
++      "dependencies": {
++        "json5": "^2.1.1"
++      },
++      "engines": {
++        "node": ">= 10.0.0"
++      }
++    },
++    "node_modules/content-disposition": {
++      "version": "0.5.4",
++      "resolved": "https://registry.npmjs.org/content-disposition/-/content-disposition-0.5.4.tgz",
++      "integrity": "sha512-FveZTNuGw04cxlAiWbzi6zTAL/lhehaWbTtgluJh4/E95DqMwTmha3KZN1aAWA8cFIhHzMZUvLevkw5Rqk+tSQ==",
++      "dependencies": {
++        "safe-buffer": "5.2.1"
++      },
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/content-type": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/content-type/-/content-type-1.0.4.tgz",
++      "integrity": "sha512-hIP3EEPs8tB9AT1L+NUqtwOAps4mk2Zob89MWXMHjHWg9milF/j4osnnQLXBCBFBk/tvIG/tUc9mOUJiPBhPXA==",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/cookie": {
++      "version": "0.5.0",
++      "resolved": "https://registry.npmjs.org/cookie/-/cookie-0.5.0.tgz",
++      "integrity": "sha512-YZ3GUyn/o8gfKJlnlX7g7xq4gyO6OSuhGPKaaGssGB2qgDUS0gPgtTvoyZLTt9Ab6dC4hfc9dV5arkvc/OCmrw==",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/cookie-signature": {
++      "version": "1.0.6",
++      "resolved": "https://registry.npmjs.org/cookie-signature/-/cookie-signature-1.0.6.tgz",
++      "integrity": "sha512-QADzlaHc8icV8I7vbaJXJwod9HWYp8uCqf1xa4OfNu1T7JVxQIrUgOWtHdNDtPiywmFbiS12VjotIXLrKM3orQ=="
++    },
++    "node_modules/debug": {
++      "version": "2.6.9",
++      "resolved": "https://registry.npmjs.org/debug/-/debug-2.6.9.tgz",
++      "integrity": "sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==",
++      "dependencies": {
++        "ms": "2.0.0"
++      }
++    },
++    "node_modules/delayed-stream": {
++      "version": "1.0.0",
++      "resolved": "https://registry.npmjs.org/delayed-stream/-/delayed-stream-1.0.0.tgz",
++      "integrity": "sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==",
++      "engines": {
++        "node": ">=0.4.0"
++      }
++    },
++    "node_modules/depd": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/depd/-/depd-2.0.0.tgz",
++      "integrity": "sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==",
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/destroy": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/destroy/-/destroy-1.2.0.tgz",
++      "integrity": "sha512-2sJGJTaXIIaR1w4iJSNoN0hnMY7Gpc/n8D4qSCJw8QqFWXf7cuAgnEHxBpweaVcPevC2l3KpjYCx3NypQQgaJg==",
++      "engines": {
++        "node": ">= 0.8",
++        "npm": "1.2.8000 || >= 1.4.16"
++      }
++    },
++    "node_modules/ee-first": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/ee-first/-/ee-first-1.1.1.tgz",
++      "integrity": "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="
++    },
++    "node_modules/encodeurl": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/encodeurl/-/encodeurl-1.0.2.tgz",
++      "integrity": "sha512-TPJXq8JqFaVYm2CWmPvnP2Iyo4ZSM7/QKcSmuMLDObfpH5fi7RUGmd/rTDf+rut/saiDiQEeVTNgAmJEdAOx0w==",
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/escape-html": {
++      "version": "1.0.3",
++      "resolved": "https://registry.npmjs.org/escape-html/-/escape-html-1.0.3.tgz",
++      "integrity": "sha512-NiSupZ4OeuGwr68lGIeym/ksIZMJodUGOSCZ/FSnTxcrekbvqrgdUxlJOMpijaKZVjAJrWrGs/6Jy8OMuyj9ow=="
++    },
++    "node_modules/etag": {
++      "version": "1.8.1",
++      "resolved": "https://registry.npmjs.org/etag/-/etag-1.8.1.tgz",
++      "integrity": "sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/express": {
++      "version": "4.18.1",
++      "resolved": "https://registry.npmjs.org/express/-/express-4.18.1.tgz",
++      "integrity": "sha512-zZBcOX9TfehHQhtupq57OF8lFZ3UZi08Y97dwFCkD8p9d/d2Y3M+ykKcwaMDEL+4qyUolgBDX6AblpR3fL212Q==",
++      "dependencies": {
++        "accepts": "~1.3.8",
++        "array-flatten": "1.1.1",
++        "body-parser": "1.20.0",
++        "content-disposition": "0.5.4",
++        "content-type": "~1.0.4",
++        "cookie": "0.5.0",
++        "cookie-signature": "1.0.6",
++        "debug": "2.6.9",
++        "depd": "2.0.0",
++        "encodeurl": "~1.0.2",
++        "escape-html": "~1.0.3",
++        "etag": "~1.8.1",
++        "finalhandler": "1.2.0",
++        "fresh": "0.5.2",
++        "http-errors": "2.0.0",
++        "merge-descriptors": "1.0.1",
++        "methods": "~1.1.2",
++        "on-finished": "2.4.1",
++        "parseurl": "~1.3.3",
++        "path-to-regexp": "0.1.7",
++        "proxy-addr": "~2.0.7",
++        "qs": "6.10.3",
++        "range-parser": "~1.2.1",
++        "safe-buffer": "5.2.1",
++        "send": "0.18.0",
++        "serve-static": "1.15.0",
++        "setprototypeof": "1.2.0",
++        "statuses": "2.0.1",
++        "type-is": "~1.6.18",
++        "utils-merge": "1.0.1",
++        "vary": "~1.1.2"
++      },
++      "engines": {
++        "node": ">= 0.10.0"
++      }
++    },
++    "node_modules/finalhandler": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/finalhandler/-/finalhandler-1.2.0.tgz",
++      "integrity": "sha512-5uXcUVftlQMFnWC9qu/svkWv3GTd2PfUhK/3PLkYNAe7FbqJMt3515HaxE6eRL74GdsriiwujiawdaB1BpEISg==",
++      "dependencies": {
++        "debug": "2.6.9",
++        "encodeurl": "~1.0.2",
++        "escape-html": "~1.0.3",
++        "on-finished": "2.4.1",
++        "parseurl": "~1.3.3",
++        "statuses": "2.0.1",
++        "unpipe": "~1.0.0"
++      },
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/follow-redirects": {
++      "version": "1.15.1",
++      "resolved": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.15.1.tgz",
++      "integrity": "sha512-yLAMQs+k0b2m7cVxpS1VKJVvoz7SS9Td1zss3XRwXj+ZDH00RJgnuLx7E44wx02kQLrdM3aOOy+FpzS7+8OizA==",
++      "funding": [
++        {
++          "type": "individual",
++          "url": "https://github.com/sponsors/RubenVerborgh"
++        }
++      ],
++      "engines": {
++        "node": ">=4.0"
++      },
++      "peerDependenciesMeta": {
++        "debug": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/form-data": {
++      "version": "4.0.0",
++      "resolved": "https://registry.npmjs.org/form-data/-/form-data-4.0.0.tgz",
++      "integrity": "sha512-ETEklSGi5t0QMZuiXoA/Q6vcnxcLQP5vdugSpuAyi6SVGi2clPPp+xgEhuMaHC+zGgn31Kd235W35f7Hykkaww==",
++      "dependencies": {
++        "asynckit": "^0.4.0",
++        "combined-stream": "^1.0.8",
++        "mime-types": "^2.1.12"
++      },
++      "engines": {
++        "node": ">= 6"
++      }
++    },
++    "node_modules/forwarded": {
++      "version": "0.2.0",
++      "resolved": "https://registry.npmjs.org/forwarded/-/forwarded-0.2.0.tgz",
++      "integrity": "sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/fresh": {
++      "version": "0.5.2",
++      "resolved": "https://registry.npmjs.org/fresh/-/fresh-0.5.2.tgz",
++      "integrity": "sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/function-bind": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/function-bind/-/function-bind-1.1.1.tgz",
++      "integrity": "sha512-yIovAzMX49sF8Yl58fSCWJ5svSLuaibPxXQJFLmBObTuCr0Mf1KiPopGM9NiFjiYBCbfaa2Fh6breQ6ANVTI0A=="
++    },
++    "node_modules/get-intrinsic": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.1.2.tgz",
++      "integrity": "sha512-Jfm3OyCxHh9DJyc28qGk+JmfkpO41A4XkneDSujN9MDXrm4oDKdHvndhZ2dN94+ERNfkYJWDclW6k2L/ZGHjXA==",
++      "dependencies": {
++        "function-bind": "^1.1.1",
++        "has": "^1.0.3",
++        "has-symbols": "^1.0.3"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/ljharb"
++      }
++    },
++    "node_modules/has": {
++      "version": "1.0.3",
++      "resolved": "https://registry.npmjs.org/has/-/has-1.0.3.tgz",
++      "integrity": "sha512-f2dvO0VU6Oej7RkWJGrehjbzMAjFp5/VKPp5tTpWIV4JHHZK1/BxbFRtf/siA2SWTe09caDmVtYYzWEIbBS4zw==",
++      "dependencies": {
++        "function-bind": "^1.1.1"
++      },
++      "engines": {
++        "node": ">= 0.4.0"
++      }
++    },
++    "node_modules/has-symbols": {
++      "version": "1.0.3",
++      "resolved": "https://registry.npmjs.org/has-symbols/-/has-symbols-1.0.3.tgz",
++      "integrity": "sha512-l3LCuF6MgDNwTDKkdYGEihYjt5pRPbEg46rtlmnSPlUbgmB8LOIrKJbYYFBSbnPaJexMKtiPO8hmeRjRz2Td+A==",
++      "engines": {
++        "node": ">= 0.4"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/ljharb"
++      }
++    },
++    "node_modules/http-errors": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/http-errors/-/http-errors-2.0.0.tgz",
++      "integrity": "sha512-FtwrG/euBzaEjYeRqOgly7G0qviiXoJWnvEH2Z1plBdXgbyjv34pHTSb9zoeHMyDy33+DWy5Wt9Wo+TURtOYSQ==",
++      "dependencies": {
++        "depd": "2.0.0",
++        "inherits": "2.0.4",
++        "setprototypeof": "1.2.0",
++        "statuses": "2.0.1",
++        "toidentifier": "1.0.1"
++      },
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/iconv-lite": {
++      "version": "0.4.24",
++      "resolved": "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.24.tgz",
++      "integrity": "sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==",
++      "dependencies": {
++        "safer-buffer": ">= 2.1.2 < 3"
++      },
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
++    "node_modules/inherits": {
++      "version": "2.0.4",
++      "resolved": "https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz",
++      "integrity": "sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ=="
++    },
++    "node_modules/ipaddr.js": {
++      "version": "1.9.1",
++      "resolved": "https://registry.npmjs.org/ipaddr.js/-/ipaddr.js-1.9.1.tgz",
++      "integrity": "sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==",
++      "engines": {
++        "node": ">= 0.10"
++      }
++    },
++    "node_modules/json5": {
++      "version": "2.2.1",
++      "resolved": "https://registry.npmjs.org/json5/-/json5-2.2.1.tgz",
++      "integrity": "sha512-1hqLFMSrGHRHxav9q9gNjJ5EXznIxGVO09xQRrwplcS8qs28pZ8s8hupZAmqDwZUmVZ2Qb2jnyPOWcDH8m8dlA==",
++      "bin": {
++        "json5": "lib/cli.js"
++      },
++      "engines": {
++        "node": ">=6"
++      }
++    },
++    "node_modules/media-typer": {
++      "version": "0.3.0",
++      "resolved": "https://registry.npmjs.org/media-typer/-/media-typer-0.3.0.tgz",
++      "integrity": "sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/merge-descriptors": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/merge-descriptors/-/merge-descriptors-1.0.1.tgz",
++      "integrity": "sha512-cCi6g3/Zr1iqQi6ySbseM1Xvooa98N0w31jzUYrXPX2xqObmFGHJ0tQ5u74H3mVh7wLouTseZyYIq39g8cNp1w=="
++    },
++    "node_modules/methods": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/methods/-/methods-1.1.2.tgz",
++      "integrity": "sha512-iclAHeNqNm68zFtnZ0e+1L2yUIdvzNoauKU4WBA3VvH/vPFieF7qfRlwUZU+DA9P9bPXIS90ulxoUoCH23sV2w==",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/mime": {
++      "version": "1.6.0",
++      "resolved": "https://registry.npmjs.org/mime/-/mime-1.6.0.tgz",
++      "integrity": "sha512-x0Vn8spI+wuJ1O6S7gnbaQg8Pxh4NNHb7KSINmEWKiPE4RKOplvijn+NkmYmmRgP68mc70j2EbeTFRsrswaQeg==",
++      "bin": {
++        "mime": "cli.js"
++      },
++      "engines": {
++        "node": ">=4"
++      }
++    },
++    "node_modules/mime-db": {
++      "version": "1.52.0",
++      "resolved": "https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz",
++      "integrity": "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/mime-types": {
++      "version": "2.1.35",
++      "resolved": "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz",
++      "integrity": "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw==",
++      "dependencies": {
++        "mime-db": "1.52.0"
++      },
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/module-alias": {
++      "version": "2.2.2",
++      "resolved": "https://registry.npmjs.org/module-alias/-/module-alias-2.2.2.tgz",
++      "integrity": "sha512-A/78XjoX2EmNvppVWEhM2oGk3x4lLxnkEA4jTbaK97QKSDjkIoOsKQlfylt/d3kKKi596Qy3NP5XrXJ6fZIC9Q=="
++    },
++    "node_modules/ms": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/ms/-/ms-2.0.0.tgz",
++      "integrity": "sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A=="
++    },
++    "node_modules/negotiator": {
++      "version": "0.6.3",
++      "resolved": "https://registry.npmjs.org/negotiator/-/negotiator-0.6.3.tgz",
++      "integrity": "sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/object-inspect": {
++      "version": "1.12.2",
++      "resolved": "https://registry.npmjs.org/object-inspect/-/object-inspect-1.12.2.tgz",
++      "integrity": "sha512-z+cPxW0QGUp0mcqcsgQyLVRDoXFQbXOwBaqyF7VIgI4TWNQsDHrBpUQslRmIfAoYWdYzs6UlKJtB2XJpTaNSpQ==",
++      "funding": {
++        "url": "https://github.com/sponsors/ljharb"
++      }
++    },
++    "node_modules/on-finished": {
++      "version": "2.4.1",
++      "resolved": "https://registry.npmjs.org/on-finished/-/on-finished-2.4.1.tgz",
++      "integrity": "sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg==",
++      "dependencies": {
++        "ee-first": "1.1.1"
++      },
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/parseurl": {
++      "version": "1.3.3",
++      "resolved": "https://registry.npmjs.org/parseurl/-/parseurl-1.3.3.tgz",
++      "integrity": "sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ==",
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/path-to-regexp": {
++      "version": "0.1.7",
++      "resolved": "https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-0.1.7.tgz",
++      "integrity": "sha512-5DFkuoqlv1uYQKxy8omFBeJPQcdoE07Kv2sferDCrAq1ohOU+MSDswDIbnx3YAM60qIOnYa53wBhXW0EbMonrQ=="
++    },
++    "node_modules/proxy-addr": {
++      "version": "2.0.7",
++      "resolved": "https://registry.npmjs.org/proxy-addr/-/proxy-addr-2.0.7.tgz",
++      "integrity": "sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==",
++      "dependencies": {
++        "forwarded": "0.2.0",
++        "ipaddr.js": "1.9.1"
++      },
++      "engines": {
++        "node": ">= 0.10"
++      }
++    },
++    "node_modules/qs": {
++      "version": "6.10.3",
++      "resolved": "https://registry.npmjs.org/qs/-/qs-6.10.3.tgz",
++      "integrity": "sha512-wr7M2E0OFRfIfJZjKGieI8lBKb7fRCH4Fv5KNPEs7gJ8jadvotdsS08PzOKR7opXhZ/Xkjtt3WF9g38drmyRqQ==",
++      "dependencies": {
++        "side-channel": "^1.0.4"
++      },
++      "engines": {
++        "node": ">=0.6"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/ljharb"
++      }
++    },
++    "node_modules/range-parser": {
++      "version": "1.2.1",
++      "resolved": "https://registry.npmjs.org/range-parser/-/range-parser-1.2.1.tgz",
++      "integrity": "sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg==",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/raw-body": {
++      "version": "2.5.1",
++      "resolved": "https://registry.npmjs.org/raw-body/-/raw-body-2.5.1.tgz",
++      "integrity": "sha512-qqJBtEyVgS0ZmPGdCFPWJ3FreoqvG4MVQln/kCgF7Olq95IbOp0/BWyMwbdtn4VTvkM8Y7khCQ2Xgk/tcrCXig==",
++      "dependencies": {
++        "bytes": "3.1.2",
++        "http-errors": "2.0.0",
++        "iconv-lite": "0.4.24",
++        "unpipe": "1.0.0"
++      },
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/safe-buffer": {
++      "version": "5.2.1",
++      "resolved": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz",
++      "integrity": "sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/feross"
++        },
++        {
++          "type": "patreon",
++          "url": "https://www.patreon.com/feross"
++        },
++        {
++          "type": "consulting",
++          "url": "https://feross.org/support"
++        }
++      ]
++    },
++    "node_modules/safer-buffer": {
++      "version": "2.1.2",
++      "resolved": "https://registry.npmjs.org/safer-buffer/-/safer-buffer-2.1.2.tgz",
++      "integrity": "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg=="
++    },
++    "node_modules/send": {
++      "version": "0.18.0",
++      "resolved": "https://registry.npmjs.org/send/-/send-0.18.0.tgz",
++      "integrity": "sha512-qqWzuOjSFOuqPjFe4NOsMLafToQQwBSOEpS+FwEt3A2V3vKubTquT3vmLTQpFgMXp8AlFWFuP1qKaJZOtPpVXg==",
++      "dependencies": {
++        "debug": "2.6.9",
++        "depd": "2.0.0",
++        "destroy": "1.2.0",
++        "encodeurl": "~1.0.2",
++        "escape-html": "~1.0.3",
++        "etag": "~1.8.1",
++        "fresh": "0.5.2",
++        "http-errors": "2.0.0",
++        "mime": "1.6.0",
++        "ms": "2.1.3",
++        "on-finished": "2.4.1",
++        "range-parser": "~1.2.1",
++        "statuses": "2.0.1"
++      },
++      "engines": {
++        "node": ">= 0.8.0"
++      }
++    },
++    "node_modules/send/node_modules/ms": {
++      "version": "2.1.3",
++      "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
++      "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="
++    },
++    "node_modules/serve-static": {
++      "version": "1.15.0",
++      "resolved": "https://registry.npmjs.org/serve-static/-/serve-static-1.15.0.tgz",
++      "integrity": "sha512-XGuRDNjXUijsUL0vl6nSD7cwURuzEgglbOaFuZM9g3kwDXOWVTck0jLzjPzGD+TazWbboZYu52/9/XPdUgne9g==",
++      "dependencies": {
++        "encodeurl": "~1.0.2",
++        "escape-html": "~1.0.3",
++        "parseurl": "~1.3.3",
++        "send": "0.18.0"
++      },
++      "engines": {
++        "node": ">= 0.8.0"
++      }
++    },
++    "node_modules/setprototypeof": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/setprototypeof/-/setprototypeof-1.2.0.tgz",
++      "integrity": "sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw=="
++    },
++    "node_modules/side-channel": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/side-channel/-/side-channel-1.0.4.tgz",
++      "integrity": "sha512-q5XPytqFEIKHkGdiMIrY10mvLRvnQh42/+GoBlFW3b2LXLE2xxJpZFdm94we0BaoV3RwJyGqg5wS7epxTv0Zvw==",
++      "dependencies": {
++        "call-bind": "^1.0.0",
++        "get-intrinsic": "^1.0.2",
++        "object-inspect": "^1.9.0"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/ljharb"
++      }
++    },
++    "node_modules/statuses": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/statuses/-/statuses-2.0.1.tgz",
++      "integrity": "sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ==",
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/toidentifier": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/toidentifier/-/toidentifier-1.0.1.tgz",
++      "integrity": "sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==",
++      "engines": {
++        "node": ">=0.6"
++      }
++    },
++    "node_modules/type-is": {
++      "version": "1.6.18",
++      "resolved": "https://registry.npmjs.org/type-is/-/type-is-1.6.18.tgz",
++      "integrity": "sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==",
++      "dependencies": {
++        "media-typer": "0.3.0",
++        "mime-types": "~2.1.24"
++      },
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/typescript": {
++      "version": "4.7.4",
++      "resolved": "https://registry.npmjs.org/typescript/-/typescript-4.7.4.tgz",
++      "integrity": "sha512-C0WQT0gezHuw6AdY1M2jxUO83Rjf0HP7Sk1DtXj6j1EwkQNZrHAg2XPWlq62oqEhYvONq5pkC2Y9oPljWToLmQ==",
++      "bin": {
++        "tsc": "bin/tsc",
++        "tsserver": "bin/tsserver"
++      },
++      "engines": {
++        "node": ">=4.2.0"
++      }
++    },
++    "node_modules/unpipe": {
++      "version": "1.0.0",
++      "resolved": "https://registry.npmjs.org/unpipe/-/unpipe-1.0.0.tgz",
++      "integrity": "sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ==",
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
++    "node_modules/utils-merge": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/utils-merge/-/utils-merge-1.0.1.tgz",
++      "integrity": "sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==",
++      "engines": {
++        "node": ">= 0.4.0"
++      }
++    },
++    "node_modules/vary": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/vary/-/vary-1.1.2.tgz",
++      "integrity": "sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==",
++      "engines": {
++        "node": ">= 0.8"
++      }
++    }
++  },
++  "dependencies": {
++    "@types/axios": {
++      "version": "0.14.0",
++      "resolved": "https://registry.npmjs.org/@types/axios/-/axios-0.14.0.tgz",
++      "integrity": "sha512-KqQnQbdYE54D7oa/UmYVMZKq7CO4l8DEENzOKc4aBRwxCXSlJXGz83flFx5L7AWrOQnmuN3kVsRdt+GZPPjiVQ==",
++      "requires": {
++        "axios": "*"
++      }
++    },
++    "@types/body-parser": {
++      "version": "1.19.2",
++      "resolved": "https://registry.npmjs.org/@types/body-parser/-/body-parser-1.19.2.tgz",
++      "integrity": "sha512-ALYone6pm6QmwZoAgeyNksccT9Q4AWZQ6PvfwR37GT6r6FWUPguq6sUmNGSMV2Wr761oQoBxwGGa6DR5o1DC9g==",
++      "requires": {
++        "@types/connect": "*",
++        "@types/node": "*"
++      }
++    },
++    "@types/config": {
++      "version": "0.0.41",
++      "resolved": "https://registry.npmjs.org/@types/config/-/config-0.0.41.tgz",
++      "integrity": "sha512-HjXUmIld0gwvyG8MU/17QtLzOyuMX4jbGuijmS9sWsob5xxgZ/hY9cbRCaHIHqTQ3HMLhwS3F8uXq3Bt9zgzHA=="
++    },
++    "@types/connect": {
++      "version": "3.4.35",
++      "resolved": "https://registry.npmjs.org/@types/connect/-/connect-3.4.35.tgz",
++      "integrity": "sha512-cdeYyv4KWoEgpBISTxWvqYsVy444DOqehiF3fM3ne10AmJ62RSyNkUnxMJXHQWRQQX2eR94m5y1IZyDwBjV9FQ==",
++      "requires": {
++        "@types/node": "*"
++      }
++    },
++    "@types/express": {
++      "version": "4.17.13",
++      "resolved": "https://registry.npmjs.org/@types/express/-/express-4.17.13.tgz",
++      "integrity": "sha512-6bSZTPaTIACxn48l50SR+axgrqm6qXFIxrdAKaG6PaJk3+zuUr35hBlgT7vOmJcum+OEaIBLtHV/qloEAFITeA==",
++      "requires": {
++        "@types/body-parser": "*",
++        "@types/express-serve-static-core": "^4.17.18",
++        "@types/qs": "*",
++        "@types/serve-static": "*"
++      }
++    },
++    "@types/express-serve-static-core": {
++      "version": "4.17.29",
++      "resolved": "https://registry.npmjs.org/@types/express-serve-static-core/-/express-serve-static-core-4.17.29.tgz",
++      "integrity": "sha512-uMd++6dMKS32EOuw1Uli3e3BPgdLIXmezcfHv7N4c1s3gkhikBplORPpMq3fuWkxncZN1reb16d5n8yhQ80x7Q==",
++      "requires": {
++        "@types/node": "*",
++        "@types/qs": "*",
++        "@types/range-parser": "*"
++      }
++    },
++    "@types/mime": {
++      "version": "1.3.2",
++      "resolved": "https://registry.npmjs.org/@types/mime/-/mime-1.3.2.tgz",
++      "integrity": "sha512-YATxVxgRqNH6nHEIsvg6k2Boc1JHI9ZbH5iWFFv/MTkchz3b1ieGDa5T0a9RznNdI0KhVbdbWSN+KWWrQZRxTw=="
++    },
++    "@types/node": {
++      "version": "18.0.4",
++      "resolved": "https://registry.npmjs.org/@types/node/-/node-18.0.4.tgz",
++      "integrity": "sha512-M0+G6V0Y4YV8cqzHssZpaNCqvYwlCiulmm0PwpNLF55r/+cT8Ol42CHRU1SEaYFH2rTwiiE1aYg/2g2rrtGdPA=="
++    },
++    "@types/qs": {
++      "version": "6.9.7",
++      "resolved": "https://registry.npmjs.org/@types/qs/-/qs-6.9.7.tgz",
++      "integrity": "sha512-FGa1F62FT09qcrueBA6qYTrJPVDzah9a+493+o2PCXsesWHIn27G98TsSMs3WPNbZIEj4+VJf6saSFpvD+3Zsw=="
++    },
++    "@types/range-parser": {
++      "version": "1.2.4",
++      "resolved": "https://registry.npmjs.org/@types/range-parser/-/range-parser-1.2.4.tgz",
++      "integrity": "sha512-EEhsLsD6UsDM1yFhAvy0Cjr6VwmpMWqFBCb9w07wVugF7w9nfajxLuVmngTIpgS6svCnm6Vaw+MZhoDCKnOfsw=="
++    },
++    "@types/serve-static": {
++      "version": "1.13.10",
++      "resolved": "https://registry.npmjs.org/@types/serve-static/-/serve-static-1.13.10.tgz",
++      "integrity": "sha512-nCkHGI4w7ZgAdNkrEu0bv+4xNV/XDqW+DydknebMOQwkpDGx8G+HTlj7R7ABI8i8nKxVw0wtKPi1D+lPOkh4YQ==",
++      "requires": {
++        "@types/mime": "^1",
++        "@types/node": "*"
++      }
++    },
++    "accepts": {
++      "version": "1.3.8",
++      "resolved": "https://registry.npmjs.org/accepts/-/accepts-1.3.8.tgz",
++      "integrity": "sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==",
++      "requires": {
++        "mime-types": "~2.1.34",
++        "negotiator": "0.6.3"
++      }
++    },
++    "array-flatten": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/array-flatten/-/array-flatten-1.1.1.tgz",
++      "integrity": "sha512-PCVAQswWemu6UdxsDFFX/+gVeYqKAod3D3UVm91jHwynguOwAvYPhx8nNlM++NqRcK6CxxpUafjmhIdKiHibqg=="
++    },
++    "asynckit": {
++      "version": "0.4.0",
++      "resolved": "https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz",
++      "integrity": "sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q=="
++    },
++    "axios": {
++      "version": "0.27.2",
++      "resolved": "https://registry.npmjs.org/axios/-/axios-0.27.2.tgz",
++      "integrity": "sha512-t+yRIyySRTp/wua5xEr+z1q60QmLq8ABsS5O9Me1AsE5dfKqgnCFzwiCZZ/cGNd1lq4/7akDWMxdhVlucjmnOQ==",
++      "requires": {
++        "follow-redirects": "^1.14.9",
++        "form-data": "^4.0.0"
++      }
++    },
++    "body-parser": {
++      "version": "1.20.0",
++      "resolved": "https://registry.npmjs.org/body-parser/-/body-parser-1.20.0.tgz",
++      "integrity": "sha512-DfJ+q6EPcGKZD1QWUjSpqp+Q7bDQTsQIF4zfUAtZ6qk+H/3/QRhg9CEp39ss+/T2vw0+HaidC0ecJj/DRLIaKg==",
++      "requires": {
++        "bytes": "3.1.2",
++        "content-type": "~1.0.4",
++        "debug": "2.6.9",
++        "depd": "2.0.0",
++        "destroy": "1.2.0",
++        "http-errors": "2.0.0",
++        "iconv-lite": "0.4.24",
++        "on-finished": "2.4.1",
++        "qs": "6.10.3",
++        "raw-body": "2.5.1",
++        "type-is": "~1.6.18",
++        "unpipe": "1.0.0"
++      }
++    },
++    "bytes": {
++      "version": "3.1.2",
++      "resolved": "https://registry.npmjs.org/bytes/-/bytes-3.1.2.tgz",
++      "integrity": "sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg=="
++    },
++    "call-bind": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/call-bind/-/call-bind-1.0.2.tgz",
++      "integrity": "sha512-7O+FbCihrB5WGbFYesctwmTKae6rOiIzmz1icreWJ+0aA7LJfuqhEso2T9ncpcFtzMQtzXf2QGGueWJGTYsqrA==",
++      "requires": {
++        "function-bind": "^1.1.1",
++        "get-intrinsic": "^1.0.2"
++      }
++    },
++    "combined-stream": {
++      "version": "1.0.8",
++      "resolved": "https://registry.npmjs.org/combined-stream/-/combined-stream-1.0.8.tgz",
++      "integrity": "sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==",
++      "requires": {
++        "delayed-stream": "~1.0.0"
++      }
++    },
++    "config": {
++      "version": "3.3.7",
++      "resolved": "https://registry.npmjs.org/config/-/config-3.3.7.tgz",
++      "integrity": "sha512-mX/n7GKDYZMqvvkY6e6oBY49W8wxdmQt+ho/5lhwFDXqQW9gI+Ahp8EKp8VAbISPnmf2+Bv5uZK7lKXZ6pf1aA==",
++      "requires": {
++        "json5": "^2.1.1"
++      }
++    },
++    "content-disposition": {
++      "version": "0.5.4",
++      "resolved": "https://registry.npmjs.org/content-disposition/-/content-disposition-0.5.4.tgz",
++      "integrity": "sha512-FveZTNuGw04cxlAiWbzi6zTAL/lhehaWbTtgluJh4/E95DqMwTmha3KZN1aAWA8cFIhHzMZUvLevkw5Rqk+tSQ==",
++      "requires": {
++        "safe-buffer": "5.2.1"
++      }
++    },
++    "content-type": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/content-type/-/content-type-1.0.4.tgz",
++      "integrity": "sha512-hIP3EEPs8tB9AT1L+NUqtwOAps4mk2Zob89MWXMHjHWg9milF/j4osnnQLXBCBFBk/tvIG/tUc9mOUJiPBhPXA=="
++    },
++    "cookie": {
++      "version": "0.5.0",
++      "resolved": "https://registry.npmjs.org/cookie/-/cookie-0.5.0.tgz",
++      "integrity": "sha512-YZ3GUyn/o8gfKJlnlX7g7xq4gyO6OSuhGPKaaGssGB2qgDUS0gPgtTvoyZLTt9Ab6dC4hfc9dV5arkvc/OCmrw=="
++    },
++    "cookie-signature": {
++      "version": "1.0.6",
++      "resolved": "https://registry.npmjs.org/cookie-signature/-/cookie-signature-1.0.6.tgz",
++      "integrity": "sha512-QADzlaHc8icV8I7vbaJXJwod9HWYp8uCqf1xa4OfNu1T7JVxQIrUgOWtHdNDtPiywmFbiS12VjotIXLrKM3orQ=="
++    },
++    "debug": {
++      "version": "2.6.9",
++      "resolved": "https://registry.npmjs.org/debug/-/debug-2.6.9.tgz",
++      "integrity": "sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==",
++      "requires": {
++        "ms": "2.0.0"
++      }
++    },
++    "delayed-stream": {
++      "version": "1.0.0",
++      "resolved": "https://registry.npmjs.org/delayed-stream/-/delayed-stream-1.0.0.tgz",
++      "integrity": "sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ=="
++    },
++    "depd": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/depd/-/depd-2.0.0.tgz",
++      "integrity": "sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw=="
++    },
++    "destroy": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/destroy/-/destroy-1.2.0.tgz",
++      "integrity": "sha512-2sJGJTaXIIaR1w4iJSNoN0hnMY7Gpc/n8D4qSCJw8QqFWXf7cuAgnEHxBpweaVcPevC2l3KpjYCx3NypQQgaJg=="
++    },
++    "ee-first": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/ee-first/-/ee-first-1.1.1.tgz",
++      "integrity": "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="
++    },
++    "encodeurl": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/encodeurl/-/encodeurl-1.0.2.tgz",
++      "integrity": "sha512-TPJXq8JqFaVYm2CWmPvnP2Iyo4ZSM7/QKcSmuMLDObfpH5fi7RUGmd/rTDf+rut/saiDiQEeVTNgAmJEdAOx0w=="
++    },
++    "escape-html": {
++      "version": "1.0.3",
++      "resolved": "https://registry.npmjs.org/escape-html/-/escape-html-1.0.3.tgz",
++      "integrity": "sha512-NiSupZ4OeuGwr68lGIeym/ksIZMJodUGOSCZ/FSnTxcrekbvqrgdUxlJOMpijaKZVjAJrWrGs/6Jy8OMuyj9ow=="
++    },
++    "etag": {
++      "version": "1.8.1",
++      "resolved": "https://registry.npmjs.org/etag/-/etag-1.8.1.tgz",
++      "integrity": "sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg=="
++    },
++    "express": {
++      "version": "4.18.1",
++      "resolved": "https://registry.npmjs.org/express/-/express-4.18.1.tgz",
++      "integrity": "sha512-zZBcOX9TfehHQhtupq57OF8lFZ3UZi08Y97dwFCkD8p9d/d2Y3M+ykKcwaMDEL+4qyUolgBDX6AblpR3fL212Q==",
++      "requires": {
++        "accepts": "~1.3.8",
++        "array-flatten": "1.1.1",
++        "body-parser": "1.20.0",
++        "content-disposition": "0.5.4",
++        "content-type": "~1.0.4",
++        "cookie": "0.5.0",
++        "cookie-signature": "1.0.6",
++        "debug": "2.6.9",
++        "depd": "2.0.0",
++        "encodeurl": "~1.0.2",
++        "escape-html": "~1.0.3",
++        "etag": "~1.8.1",
++        "finalhandler": "1.2.0",
++        "fresh": "0.5.2",
++        "http-errors": "2.0.0",
++        "merge-descriptors": "1.0.1",
++        "methods": "~1.1.2",
++        "on-finished": "2.4.1",
++        "parseurl": "~1.3.3",
++        "path-to-regexp": "0.1.7",
++        "proxy-addr": "~2.0.7",
++        "qs": "6.10.3",
++        "range-parser": "~1.2.1",
++        "safe-buffer": "5.2.1",
++        "send": "0.18.0",
++        "serve-static": "1.15.0",
++        "setprototypeof": "1.2.0",
++        "statuses": "2.0.1",
++        "type-is": "~1.6.18",
++        "utils-merge": "1.0.1",
++        "vary": "~1.1.2"
++      }
++    },
++    "finalhandler": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/finalhandler/-/finalhandler-1.2.0.tgz",
++      "integrity": "sha512-5uXcUVftlQMFnWC9qu/svkWv3GTd2PfUhK/3PLkYNAe7FbqJMt3515HaxE6eRL74GdsriiwujiawdaB1BpEISg==",
++      "requires": {
++        "debug": "2.6.9",
++        "encodeurl": "~1.0.2",
++        "escape-html": "~1.0.3",
++        "on-finished": "2.4.1",
++        "parseurl": "~1.3.3",
++        "statuses": "2.0.1",
++        "unpipe": "~1.0.0"
++      }
++    },
++    "follow-redirects": {
++      "version": "1.15.1",
++      "resolved": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.15.1.tgz",
++      "integrity": "sha512-yLAMQs+k0b2m7cVxpS1VKJVvoz7SS9Td1zss3XRwXj+ZDH00RJgnuLx7E44wx02kQLrdM3aOOy+FpzS7+8OizA=="
++    },
++    "form-data": {
++      "version": "4.0.0",
++      "resolved": "https://registry.npmjs.org/form-data/-/form-data-4.0.0.tgz",
++      "integrity": "sha512-ETEklSGi5t0QMZuiXoA/Q6vcnxcLQP5vdugSpuAyi6SVGi2clPPp+xgEhuMaHC+zGgn31Kd235W35f7Hykkaww==",
++      "requires": {
++        "asynckit": "^0.4.0",
++        "combined-stream": "^1.0.8",
++        "mime-types": "^2.1.12"
++      }
++    },
++    "forwarded": {
++      "version": "0.2.0",
++      "resolved": "https://registry.npmjs.org/forwarded/-/forwarded-0.2.0.tgz",
++      "integrity": "sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow=="
++    },
++    "fresh": {
++      "version": "0.5.2",
++      "resolved": "https://registry.npmjs.org/fresh/-/fresh-0.5.2.tgz",
++      "integrity": "sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q=="
++    },
++    "function-bind": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/function-bind/-/function-bind-1.1.1.tgz",
++      "integrity": "sha512-yIovAzMX49sF8Yl58fSCWJ5svSLuaibPxXQJFLmBObTuCr0Mf1KiPopGM9NiFjiYBCbfaa2Fh6breQ6ANVTI0A=="
++    },
++    "get-intrinsic": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.1.2.tgz",
++      "integrity": "sha512-Jfm3OyCxHh9DJyc28qGk+JmfkpO41A4XkneDSujN9MDXrm4oDKdHvndhZ2dN94+ERNfkYJWDclW6k2L/ZGHjXA==",
++      "requires": {
++        "function-bind": "^1.1.1",
++        "has": "^1.0.3",
++        "has-symbols": "^1.0.3"
++      }
++    },
++    "has": {
++      "version": "1.0.3",
++      "resolved": "https://registry.npmjs.org/has/-/has-1.0.3.tgz",
++      "integrity": "sha512-f2dvO0VU6Oej7RkWJGrehjbzMAjFp5/VKPp5tTpWIV4JHHZK1/BxbFRtf/siA2SWTe09caDmVtYYzWEIbBS4zw==",
++      "requires": {
++        "function-bind": "^1.1.1"
++      }
++    },
++    "has-symbols": {
++      "version": "1.0.3",
++      "resolved": "https://registry.npmjs.org/has-symbols/-/has-symbols-1.0.3.tgz",
++      "integrity": "sha512-l3LCuF6MgDNwTDKkdYGEihYjt5pRPbEg46rtlmnSPlUbgmB8LOIrKJbYYFBSbnPaJexMKtiPO8hmeRjRz2Td+A=="
++    },
++    "http-errors": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/http-errors/-/http-errors-2.0.0.tgz",
++      "integrity": "sha512-FtwrG/euBzaEjYeRqOgly7G0qviiXoJWnvEH2Z1plBdXgbyjv34pHTSb9zoeHMyDy33+DWy5Wt9Wo+TURtOYSQ==",
++      "requires": {
++        "depd": "2.0.0",
++        "inherits": "2.0.4",
++        "setprototypeof": "1.2.0",
++        "statuses": "2.0.1",
++        "toidentifier": "1.0.1"
++      }
++    },
++    "iconv-lite": {
++      "version": "0.4.24",
++      "resolved": "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.24.tgz",
++      "integrity": "sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==",
++      "requires": {
++        "safer-buffer": ">= 2.1.2 < 3"
++      }
++    },
++    "inherits": {
++      "version": "2.0.4",
++      "resolved": "https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz",
++      "integrity": "sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ=="
++    },
++    "ipaddr.js": {
++      "version": "1.9.1",
++      "resolved": "https://registry.npmjs.org/ipaddr.js/-/ipaddr.js-1.9.1.tgz",
++      "integrity": "sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g=="
++    },
++    "json5": {
++      "version": "2.2.1",
++      "resolved": "https://registry.npmjs.org/json5/-/json5-2.2.1.tgz",
++      "integrity": "sha512-1hqLFMSrGHRHxav9q9gNjJ5EXznIxGVO09xQRrwplcS8qs28pZ8s8hupZAmqDwZUmVZ2Qb2jnyPOWcDH8m8dlA=="
++    },
++    "media-typer": {
++      "version": "0.3.0",
++      "resolved": "https://registry.npmjs.org/media-typer/-/media-typer-0.3.0.tgz",
++      "integrity": "sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ=="
++    },
++    "merge-descriptors": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/merge-descriptors/-/merge-descriptors-1.0.1.tgz",
++      "integrity": "sha512-cCi6g3/Zr1iqQi6ySbseM1Xvooa98N0w31jzUYrXPX2xqObmFGHJ0tQ5u74H3mVh7wLouTseZyYIq39g8cNp1w=="
++    },
++    "methods": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/methods/-/methods-1.1.2.tgz",
++      "integrity": "sha512-iclAHeNqNm68zFtnZ0e+1L2yUIdvzNoauKU4WBA3VvH/vPFieF7qfRlwUZU+DA9P9bPXIS90ulxoUoCH23sV2w=="
++    },
++    "mime": {
++      "version": "1.6.0",
++      "resolved": "https://registry.npmjs.org/mime/-/mime-1.6.0.tgz",
++      "integrity": "sha512-x0Vn8spI+wuJ1O6S7gnbaQg8Pxh4NNHb7KSINmEWKiPE4RKOplvijn+NkmYmmRgP68mc70j2EbeTFRsrswaQeg=="
++    },
++    "mime-db": {
++      "version": "1.52.0",
++      "resolved": "https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz",
++      "integrity": "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg=="
++    },
++    "mime-types": {
++      "version": "2.1.35",
++      "resolved": "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz",
++      "integrity": "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw==",
++      "requires": {
++        "mime-db": "1.52.0"
++      }
++    },
++    "module-alias": {
++      "version": "2.2.2",
++      "resolved": "https://registry.npmjs.org/module-alias/-/module-alias-2.2.2.tgz",
++      "integrity": "sha512-A/78XjoX2EmNvppVWEhM2oGk3x4lLxnkEA4jTbaK97QKSDjkIoOsKQlfylt/d3kKKi596Qy3NP5XrXJ6fZIC9Q=="
++    },
++    "ms": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/ms/-/ms-2.0.0.tgz",
++      "integrity": "sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A=="
++    },
++    "negotiator": {
++      "version": "0.6.3",
++      "resolved": "https://registry.npmjs.org/negotiator/-/negotiator-0.6.3.tgz",
++      "integrity": "sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg=="
++    },
++    "object-inspect": {
++      "version": "1.12.2",
++      "resolved": "https://registry.npmjs.org/object-inspect/-/object-inspect-1.12.2.tgz",
++      "integrity": "sha512-z+cPxW0QGUp0mcqcsgQyLVRDoXFQbXOwBaqyF7VIgI4TWNQsDHrBpUQslRmIfAoYWdYzs6UlKJtB2XJpTaNSpQ=="
++    },
++    "on-finished": {
++      "version": "2.4.1",
++      "resolved": "https://registry.npmjs.org/on-finished/-/on-finished-2.4.1.tgz",
++      "integrity": "sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg==",
++      "requires": {
++        "ee-first": "1.1.1"
++      }
++    },
++    "parseurl": {
++      "version": "1.3.3",
++      "resolved": "https://registry.npmjs.org/parseurl/-/parseurl-1.3.3.tgz",
++      "integrity": "sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ=="
++    },
++    "path-to-regexp": {
++      "version": "0.1.7",
++      "resolved": "https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-0.1.7.tgz",
++      "integrity": "sha512-5DFkuoqlv1uYQKxy8omFBeJPQcdoE07Kv2sferDCrAq1ohOU+MSDswDIbnx3YAM60qIOnYa53wBhXW0EbMonrQ=="
++    },
++    "proxy-addr": {
++      "version": "2.0.7",
++      "resolved": "https://registry.npmjs.org/proxy-addr/-/proxy-addr-2.0.7.tgz",
++      "integrity": "sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==",
++      "requires": {
++        "forwarded": "0.2.0",
++        "ipaddr.js": "1.9.1"
++      }
++    },
++    "qs": {
++      "version": "6.10.3",
++      "resolved": "https://registry.npmjs.org/qs/-/qs-6.10.3.tgz",
++      "integrity": "sha512-wr7M2E0OFRfIfJZjKGieI8lBKb7fRCH4Fv5KNPEs7gJ8jadvotdsS08PzOKR7opXhZ/Xkjtt3WF9g38drmyRqQ==",
++      "requires": {
++        "side-channel": "^1.0.4"
++      }
++    },
++    "range-parser": {
++      "version": "1.2.1",
++      "resolved": "https://registry.npmjs.org/range-parser/-/range-parser-1.2.1.tgz",
++      "integrity": "sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg=="
++    },
++    "raw-body": {
++      "version": "2.5.1",
++      "resolved": "https://registry.npmjs.org/raw-body/-/raw-body-2.5.1.tgz",
++      "integrity": "sha512-qqJBtEyVgS0ZmPGdCFPWJ3FreoqvG4MVQln/kCgF7Olq95IbOp0/BWyMwbdtn4VTvkM8Y7khCQ2Xgk/tcrCXig==",
++      "requires": {
++        "bytes": "3.1.2",
++        "http-errors": "2.0.0",
++        "iconv-lite": "0.4.24",
++        "unpipe": "1.0.0"
++      }
++    },
++    "safe-buffer": {
++      "version": "5.2.1",
++      "resolved": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz",
++      "integrity": "sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ=="
++    },
++    "safer-buffer": {
++      "version": "2.1.2",
++      "resolved": "https://registry.npmjs.org/safer-buffer/-/safer-buffer-2.1.2.tgz",
++      "integrity": "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg=="
++    },
++    "send": {
++      "version": "0.18.0",
++      "resolved": "https://registry.npmjs.org/send/-/send-0.18.0.tgz",
++      "integrity": "sha512-qqWzuOjSFOuqPjFe4NOsMLafToQQwBSOEpS+FwEt3A2V3vKubTquT3vmLTQpFgMXp8AlFWFuP1qKaJZOtPpVXg==",
++      "requires": {
++        "debug": "2.6.9",
++        "depd": "2.0.0",
++        "destroy": "1.2.0",
++        "encodeurl": "~1.0.2",
++        "escape-html": "~1.0.3",
++        "etag": "~1.8.1",
++        "fresh": "0.5.2",
++        "http-errors": "2.0.0",
++        "mime": "1.6.0",
++        "ms": "2.1.3",
++        "on-finished": "2.4.1",
++        "range-parser": "~1.2.1",
++        "statuses": "2.0.1"
++      },
++      "dependencies": {
++        "ms": {
++          "version": "2.1.3",
++          "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
++          "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="
++        }
++      }
++    },
++    "serve-static": {
++      "version": "1.15.0",
++      "resolved": "https://registry.npmjs.org/serve-static/-/serve-static-1.15.0.tgz",
++      "integrity": "sha512-XGuRDNjXUijsUL0vl6nSD7cwURuzEgglbOaFuZM9g3kwDXOWVTck0jLzjPzGD+TazWbboZYu52/9/XPdUgne9g==",
++      "requires": {
++        "encodeurl": "~1.0.2",
++        "escape-html": "~1.0.3",
++        "parseurl": "~1.3.3",
++        "send": "0.18.0"
++      }
++    },
++    "setprototypeof": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/setprototypeof/-/setprototypeof-1.2.0.tgz",
++      "integrity": "sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw=="
++    },
++    "side-channel": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/side-channel/-/side-channel-1.0.4.tgz",
++      "integrity": "sha512-q5XPytqFEIKHkGdiMIrY10mvLRvnQh42/+GoBlFW3b2LXLE2xxJpZFdm94we0BaoV3RwJyGqg5wS7epxTv0Zvw==",
++      "requires": {
++        "call-bind": "^1.0.0",
++        "get-intrinsic": "^1.0.2",
++        "object-inspect": "^1.9.0"
++      }
++    },
++    "statuses": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/statuses/-/statuses-2.0.1.tgz",
++      "integrity": "sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ=="
++    },
++    "toidentifier": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/toidentifier/-/toidentifier-1.0.1.tgz",
++      "integrity": "sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA=="
++    },
++    "type-is": {
++      "version": "1.6.18",
++      "resolved": "https://registry.npmjs.org/type-is/-/type-is-1.6.18.tgz",
++      "integrity": "sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==",
++      "requires": {
++        "media-typer": "0.3.0",
++        "mime-types": "~2.1.24"
++      }
++    },
++    "typescript": {
++      "version": "4.7.4",
++      "resolved": "https://registry.npmjs.org/typescript/-/typescript-4.7.4.tgz",
++      "integrity": "sha512-C0WQT0gezHuw6AdY1M2jxUO83Rjf0HP7Sk1DtXj6j1EwkQNZrHAg2XPWlq62oqEhYvONq5pkC2Y9oPljWToLmQ=="
++    },
++    "unpipe": {
++      "version": "1.0.0",
++      "resolved": "https://registry.npmjs.org/unpipe/-/unpipe-1.0.0.tgz",
++      "integrity": "sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ=="
++    },
++    "utils-merge": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/utils-merge/-/utils-merge-1.0.1.tgz",
++      "integrity": "sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA=="
++    },
++    "vary": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/vary/-/vary-1.1.2.tgz",
++      "integrity": "sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg=="
++    }
++  }
++}
+diff --git a/cryptocurrency-commutator/bot/package.json b/cryptocurrency-commutator/bot/package.json
+new file mode 100644
+index 0000000..7802772
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/package.json
+@@ -0,0 +1,32 @@
++{
++  "name": "cryptocurrency-commutator-bot",
++  "version": "1.0.0",
++  "description": "",
++  "main": "compiled/app.js",
++  "scripts": {
++    "test": "tsc && node compiled/app.js"
++  },
++  "repository": {
++    "type": "git",
++    "url": "git+https://github.com/Sukairo-02/Lambda-trainee.git"
++  },
++  "author": "",
++  "license": "ISC",
++  "bugs": {
++    "url": "https://github.com/Sukairo-02/Lambda-trainee/issues"
++  },
++  "homepage": "https://github.com/Sukairo-02/Lambda-trainee#readme",
++  "dependencies": {
++    "@types/axios": "^0.14.0",
++    "@types/config": "^0.0.41",
++    "@types/express": "^4.17.13",
++    "axios": "^0.27.2",
++    "config": "^3.3.7",
++    "express": "^4.18.1",
++    "module-alias": "^2.2.2",
++    "typescript": "^4.7.4"
++  },
++  "_moduleAliases": {
++    "@util": "compiled/util"
++  }
++}
+diff --git a/cryptocurrency-commutator/bot/src/app.ts b/cryptocurrency-commutator/bot/src/app.ts
+new file mode 100644
+index 0000000..5818652
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/src/app.ts
+@@ -0,0 +1,25 @@
++import 'module-alias/register'
++import config from 'config'
++import tgBot from '@util/tgBot'
++
++const PORT: number = Number(process.env.PORT) || config.get('server.PORT') || 3000
++const url = config.get<string>('server.URL')
++const botToken = config.get<string>('tg.bot')
++
++const start = async () => {
++	try {
++		tgBot(botToken, PORT, url)
++	} catch (e) {
++		console.log(e)
++	}
++}
++
++start()
++
++process.on('unhandledRejection', (reason, promise) => {
++	console.log('UNHANDLED:\n', reason, '\n', promise, '\n\n')
++})
++
++process.on('uncaughtException', (e, o) => {
++	console.log('UNCAUGHT:\n', e, '\n', o, '\n\n')
++})
+diff --git a/cryptocurrency-commutator/bot/src/util/queryProcessor/index.ts b/cryptocurrency-commutator/bot/src/util/queryProcessor/index.ts
+new file mode 100644
+index 0000000..5b27a0a
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/src/util/queryProcessor/index.ts
+@@ -0,0 +1,278 @@
++import axios, { AxiosError, AxiosResponse } from 'axios'
++import config from 'config'
++
++import type { InlineKeyboardButton, InlineKeyboardMarkup } from '@util/tgBot/types'
++import type { apiResult, apiAverage, apiPeriod, botDataResponse } from './types'
++
++const apiUrl = config.get<string>('api.URL')
++
++const respond = async (token: string, chatID: number, text: string, markup?: InlineKeyboardMarkup) => {
++	try {
++		await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
++			chat_id: chatID,
++			parse_mode: 'HTML',
++			text,
++			reply_markup: JSON.stringify(markup)
++		})
++	} catch (e) {
++		console.log(e)
++	}
++}
++
++const invalidCurrencyResponse = async (token: string, chatID: number, symbolList: string[] | undefined) => {
++	try {
++		if (!symbolList || !symbolList.length) {
++			await respond(token, chatID, 'Internal server error. Try again later...')
++			throw new Error(`Api error: request rejected, but no invalid symbols specified.`)
++		}
++
++		const resMsg = `Invalid currency(-ies): ${symbolList.join(
++			', '
++		)}.\nRefer to /listrecent to get list of supported currencies.`
++
++		await respond(token, chatID, resMsg)
++	} catch (e) {
++		console.log(e)
++	}
++}
++
++const getAvgFromApis = (source: apiResult) => {
++	const isPrice = new RegExp(/Price$/)
++	return source.reduce<{ symbol: string; price: number; timestamp?: string }[]>((p, e) => {
++		let accum = 0
++		let amt = 0
++		for (const [key, value] of Object.entries(e)) {
++			if (isPrice.test(key) && !isNaN(Number(value))) {
++				amt++
++				accum += Number(value)
++			}
++		}
++
++		p.push({ symbol: e.symbol, price: accum / amt })
++		return p
++	}, <{ symbol: string; price: number; timestamp?: string }[]>[])
++}
++
++const listToBoard = (list: string[]) => {
++	return {
++		inline_keyboard: list.reduce<InlineKeyboardButton[][]>((p, e) => {
++			p.push([
++				{
++					text: e,
++					callback_data: `/${e}`
++				},
++				{
++					text: '❌',
++					callback_data: `/deletefavorite ${e}`
++				}
++			])
++			return p
++		}, [])
++	}
++}
++
++export = async (
++	token: string,
++	query: string[],
++	userID: number,
++	chatID: number,
++	messageID: number,
++	isQuery: boolean
++) => {
++	try {
++		if (!query[0] || query[0][0] !== '/') {
++			return
++		} //ignore non-command messages
++
++		switch (query[0]) {
++			case '/start':
++				return await respond(token, chatID, 'Welcome to the world of crypto! Send /help to see your options...')
++
++			case '/help': {
++				return await respond(
++					token,
++					chatID,
++					"Here's what you can do:\n/listrecent - Latest data of supported currencies\n/{*currency_name} - Get detailed info about crypto of your choice ex: <code>/BTC</code>\n/addfavorite {*currency_name} - Add crypto to favorites\n/deletefavorite {*currency_name} - Delete crypto from favorites\n/listfavorite - Look at your favorites\n\n<i>* - supports comma-separated list\nex: <code>/addfavorite BTC,ETH,ETC</code></i>"
++				)
++			}
++
++			case '/listrecent': {
++				try {
++					const recent = (await axios.get<apiPeriod>(`${apiUrl}/api/period`)).data.result
++
++					if (!recent) {
++						throw new Error('Api error: empty response')
++					}
++					const packed = getAvgFromApis(recent)
++					const resMsg = packed.reduce<string>((p, e) => {
++						return p + `\n/${e.symbol} - <code>$${e.price}</code>`
++					}, 'Here are latest stored values of supported currencies:')
++
++					return await respond(token, chatID, resMsg)
++				} catch (e) {
++					console.log(e)
++					return await respond(token, chatID, 'Data api error. Try again later...')
++				}
++			}
++
++			case '/addfavorite': {
++				if (!query[1]) {
++					return await respond(token, chatID, 'You must specify currency!')
++				}
++
++				const response = await axios.post<botDataResponse>(
++					`${apiUrl}/bot/favorites`,
++					{
++						user: String(userID),
++						symbols: query[1]
++					},
++					{
++						headers: {
++							Authorization: `Bearer ${token}`
++						}
++					}
++				)
++
++				let resMsg = `Succesfully added currency(-ies) to favorites!${
++					response.data.symbols?.dismissed?.length
++						? `\nInvalid currency(-ies) skipped: ${response.data.symbols.dismissed.join(', ')}`
++						: ''
++				}`
++
++				return await respond(token, chatID, resMsg)
++			}
++
++			case '/deletefavorite': {
++				if (!query[1]) {
++					return await respond(token, chatID, 'You must specify currency!')
++				}
++
++				const response = await axios.delete<botDataResponse>(`${apiUrl}/bot/favorites`, {
++					headers: {
++						Authorization: `Bearer ${token}`
++					},
++					data: {
++						user: String(userID),
++						symbols: query[1]
++					}
++				})
++
++				if (isQuery) {
++					if (response.data.favorites?.length) {
++						return await axios.post(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
++							chat_id: chatID,
++							message_id: messageID,
++							reply_markup: JSON.stringify(listToBoard(response.data.favorites.split(',')))
++						})
++					} else {
++						return await axios.post(`https://api.telegram.org/bot${token}/deleteMessage`, {
++							chat_id: chatID,
++							message_id: messageID
++						})
++					}
++				} else {
++					let resMsg = `Succesfully deleted currency(-ies) from favorites!${
++						response.data.symbols?.dismissed?.length
++							? `\nInvalid currency(-ies) skipped: ${response.data.symbols.dismissed.join(', ')}`
++							: ''
++					}`
++
++					return await respond(token, chatID, resMsg)
++				}
++			}
++
++			case '/listfavorite': {
++				const favorites = await (
++					await axios.get<botDataResponse>(`${apiUrl}/bot/favorites?user=${userID}`, {
++						headers: {
++							Authorization: `Bearer ${token}`
++						}
++					})
++				).data.favorites?.split(',')
++
++				if (!favorites || !favorites.length) {
++					return await respond(token, chatID, `Your favorites are currently empty`)
++				}
++
++				const keyboard = listToBoard(favorites)
++
++				return await respond(token, chatID, `Here's the list of your favorites:`, keyboard)
++			}
++
++			default: {
++				const symbols = query[0].substring(1).split(',')
++				const nowJSON = new Date().toJSON()
++				const JSONDates = [
++					new Date(Date.now() - 1800000).toJSON(),
++					new Date(Date.now() - 3600000).toJSON(),
++					new Date(Date.now() - 10800000).toJSON(),
++					new Date(Date.now() - 21600000).toJSON(),
++					new Date(Date.now() - 43200000).toJSON(),
++					new Date(Date.now() - 86400000).toJSON()
++				]
++				const timeStrings = ['30m', '1h', '3h', '6h', '12h', '24h']
++
++				for (let i = 0; i < symbols.length; ++i) {
++					const symbol = symbols[i]
++					try {
++						const apiResponse = [
++							await axios.get<apiPeriod>(`${apiUrl}/api/period?symbols=${symbol}`),
++							await axios.get<apiPeriod>(
++								`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[0]}&periodEnd=${nowJSON}`
++							),
++							await axios.get<apiPeriod>(
++								`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[1]}&periodEnd=${nowJSON}`
++							),
++							await axios.get<apiPeriod>(
++								`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[2]}&periodEnd=${nowJSON}`
++							),
++							await axios.get<apiPeriod>(
++								`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[3]}&periodEnd=${nowJSON}`
++							),
++							await axios.get<apiPeriod>(
++								`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[4]}&periodEnd=${nowJSON}`
++							),
++							await axios.get<apiPeriod>(
++								`${apiUrl}/api/average?symbols=${symbol}&periodBegin=${JSONDates[5]}&periodEnd=${nowJSON}`
++							)
++						]
++
++						if (!apiResponse.every((e) => e.data.result?.length)) {
++							await respond(token, chatID, `/${symbol}: no data yet, try again later...`)
++						}
++
++						const warning = apiResponse.some((e) => (<any>e).data?.warning)
++
++						const mapped = apiResponse.map((e) => getAvgFromApis(e.data.result!))
++
++						const resMsg = `${mapped.reduce<string>((p, e, i) => {
++							return p + `\n\t${timeStrings[i]} - <code>$${e[0].price}</code>`
++						}, `/${symbol} - <code>${mapped.shift()![0].price}$</code>\nAverage values:`)}${
++							warning ? `\nWarning: missing some data during 24h period, values may be incorrect.` : ''
++						}`
++
++						await respond(token, chatID, resMsg)
++					} catch (e) {
++						if ((<AxiosError<apiAverage & apiPeriod>>e)?.response?.status != 403) {
++							console.log(e)
++							await respond(token, chatID, `${symbol}: internal server error. Try again later...`)
++						}
++
++						const dismissedList = (<AxiosError<apiAverage & apiPeriod>>e)?.response?.data?.symbols
++							?.dismissed
++						await invalidCurrencyResponse(token, chatID, dismissedList)
++					}
++				}
++				return
++			}
++		}
++	} catch (e) {
++		if ((<AxiosError<apiAverage & apiPeriod>>e)?.response?.status != 403) {
++			console.log(e)
++			return await respond(token, chatID, 'Internal server error. Try again later...')
++		}
++
++		const dismissedList = (<AxiosError<apiAverage & apiPeriod>>e)?.response?.data?.symbols?.dismissed
++		return await invalidCurrencyResponse(token, chatID, dismissedList)
++	}
++}
+diff --git a/cryptocurrency-commutator/bot/src/util/queryProcessor/types.d.ts b/cryptocurrency-commutator/bot/src/util/queryProcessor/types.d.ts
+new file mode 100644
+index 0000000..dbd57f0
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/src/util/queryProcessor/types.d.ts
+@@ -0,0 +1,44 @@
++export type apiResult = {
++	symbol: string
++	timestamp: string //JSON DATETIME
++	coinbasePrice?: number
++	coinstatsPrice?: number
++	coinpaprikaPrice?: number
++	kucoinPrice?: number
++	coinmarketcapPrice: number
++}[]
++
++export type apiAverage = Partial<{
++	result: apiResult
++	apis: {
++		accepted?: string[]
++		dismissed?: string[]
++	}
++	symbols: {
++		accepted?: string[]
++		dismissed?: string[]
++	}
++	warning?: string
++}>
++
++export type apiPeriod = Partial<{
++	result: apiResult
++	apis: {
++		accepted?: string[]
++		dismissed?: string[]
++	}
++	symbols: {
++		accepted?: string[]
++		dismissed?: string[]
++	}
++}>
++
++export type botDataResponse = Partial<{
++	user: string
++	favorites?: string
++	warning: string
++	symbols: {
++		accepted?: string[]
++		dismissed?: string[]
++	}
++}>
+diff --git a/cryptocurrency-commutator/bot/src/util/tgBot/index.ts b/cryptocurrency-commutator/bot/src/util/tgBot/index.ts
+new file mode 100644
+index 0000000..bbf1ad6
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/src/util/tgBot/index.ts
+@@ -0,0 +1,76 @@
++import axios from 'axios'
++import express, { Request, Response } from 'express'
++import type { Update } from './types'
++import queryProcessor from '@util/queryProcessor'
++
++const app = express()
++app.use(express.json())
++
++let localToken: string
++
++const botProc = async (req: Request, res: Response) => {
++	try {
++		const msg: Update = req.body
++		if (!msg || !msg.update_id) {
++			return res.sendStatus(200)
++		}
++
++		let chatID: number | undefined
++		let userID: number | undefined
++		let messageID: number | undefined
++		let rawQuery: string | undefined
++		let isQuery = false
++
++		if (msg.message) {
++			chatID = msg.message.chat.id
++			userID = msg.message.from?.id
++			messageID = msg.message.message_id
++			rawQuery = msg.message.text
++		} else if (msg.callback_query) {
++			chatID = msg.callback_query.from.id
++			userID = msg.callback_query.from.id
++			messageID = msg.callback_query.message?.message_id
++			rawQuery = msg.callback_query.data
++			isQuery = true
++		} else {
++			return res.sendStatus(200)
++		}
++
++		const query: string[] | undefined = rawQuery?.split(' ')
++		if (!query) {
++			return res.sendStatus(200)
++		}
++
++		if (typeof userID !== 'number' || typeof chatID !== 'number' || typeof messageID !== 'number') {
++			return res.sendStatus(200)
++		}
++
++		await queryProcessor(localToken, query, userID, chatID, messageID, isQuery)
++
++		return res.sendStatus(200)
++	} catch (e) {
++		console.log(e, req)
++		return res.sendStatus(200)
++	}
++}
++
++export = async (botToken: string, port: number | string, url: string) => {
++	try {
++		if (!botToken || !port || !url) {
++			throw new Error('Bot error: missing data')
++		}
++
++		localToken = botToken
++
++		app.listen(port, () => {
++			console.log(`Bot: listening to port ${port}`)
++		})
++
++		app.post(`/bot${botToken}`, botProc)
++
++		await axios.post(`https://api.telegram.org/bot${botToken}/setWebhook`, { url: `${url}/bot${botToken}` })
++		console.log(`Bot: webhook set to url: ${url}/bot${botToken}`)
++	} catch (e) {
++		console.log(e)
++	}
++}
+diff --git a/cryptocurrency-commutator/bot/src/util/tgBot/types.d.ts b/cryptocurrency-commutator/bot/src/util/tgBot/types.d.ts
+new file mode 100644
+index 0000000..d8cba63
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/src/util/tgBot/types.d.ts
+@@ -0,0 +1,442 @@
++//Borrowed from node-telegram-bot-api, @types/node-telegram-bot-api
++
++interface User {
++	id: number
++	is_bot: boolean
++	first_name: string
++	last_name?: string | undefined
++	username?: string | undefined
++	language_code?: string | undefined
++}
++
++interface ChatPhoto {
++	small_file_id: string
++	big_file_id: string
++}
++
++interface ChatInviteLink {
++	invite_link: string
++	creator: User
++	is_primary: boolean
++	is_revoked: boolean
++	expire_date?: number
++	member_limit?: number
++}
++
++type ChatMemberStatus = 'creator' | 'administrator' | 'member' | 'restricted' | 'left' | 'kicked'
++
++interface ChatMember {
++	user: User
++	status: ChatMemberStatus
++	until_date?: number | undefined
++	can_be_edited?: boolean | undefined
++	can_post_messages?: boolean | undefined
++	can_edit_messages?: boolean | undefined
++	can_delete_messages?: boolean | undefined
++	can_restrict_members?: boolean | undefined
++	can_promote_members?: boolean | undefined
++	can_change_info?: boolean | undefined
++	can_invite_users?: boolean | undefined
++	can_pin_messages?: boolean | undefined
++	is_member?: boolean | undefined
++	can_send_messages?: boolean | undefined
++	can_send_media_messages?: boolean | undefined
++	can_send_polls: boolean
++	can_send_other_messages?: boolean | undefined
++	can_add_web_page_previews?: boolean | undefined
++}
++
++type ChatType = 'private' | 'group' | 'supergroup' | 'channel'
++
++interface ChatPermissions {
++	can_send_messages?: boolean | undefined
++	can_send_media_messages?: boolean | undefined
++	can_send_polls?: boolean | undefined
++	can_send_other_messages?: boolean | undefined
++	can_add_web_page_previews?: boolean | undefined
++	can_change_info?: boolean | undefined
++	can_invite_users?: boolean | undefined
++	can_pin_messages?: boolean | undefined
++}
++
++interface Chat {
++	id: number
++	type: ChatType
++	title?: string | undefined
++	username?: string | undefined
++	first_name?: string | undefined
++	last_name?: string | undefined
++	photo?: ChatPhoto | undefined
++	description?: string | undefined
++	invite_link?: string | undefined
++	pinned_message?: Message | undefined
++	permissions?: ChatPermissions | undefined
++	can_set_sticker_set?: boolean | undefined
++	sticker_set_name?: string | undefined
++	/**
++	 * @deprecated since version Telegram Bot API 4.4 - July 29, 2019
++	 */
++	all_members_are_administrators?: boolean | undefined
++}
++
++interface InlineQuery {
++	id: string
++	from: User
++	location?: Location | undefined
++	query: string
++	offset: string
++}
++
++type MessageEntityType =
++	| 'mention'
++	| 'hashtag'
++	| 'cashtag'
++	| 'bot_command'
++	| 'url'
++	| 'email'
++	| 'phone_number'
++	| 'bold'
++	| 'italic'
++	| 'underline'
++	| 'strikethrough'
++	| 'code'
++	| 'pre'
++	| 'text_link'
++	| 'text_mention'
++
++type ParseMode = 'Markdown' | 'MarkdownV2' | 'HTML'
++
++interface MessageEntity {
++	type: MessageEntityType
++	offset: number
++	length: number
++	url?: string | undefined
++	user?: User | undefined
++}
++
++interface FileBase {
++	file_id: string
++	file_size?: number | undefined
++}
++
++interface PhotoSize extends FileBase {
++	width: number
++	height: number
++}
++
++interface Audio extends FileBase {
++	duration: number
++	performer?: string | undefined
++	title?: string | undefined
++	mime_type?: string | undefined
++	thumb?: PhotoSize | undefined
++}
++
++interface Document extends FileBase {
++	thumb?: PhotoSize | undefined
++	file_name?: string | undefined
++	mime_type?: string | undefined
++}
++
++interface Video extends FileBase {
++	width: number
++	height: number
++	duration: number
++	thumb?: PhotoSize | undefined
++	mime_type?: string | undefined
++}
++
++interface Voice extends FileBase {
++	duration: number
++	mime_type?: string | undefined
++}
++
++interface InputMediaBase {
++	media: string
++	caption?: string | undefined
++	parse_mode?: ParseMode | undefined
++}
++
++interface InputMediaPhoto extends InputMediaBase {
++	type: 'photo'
++}
++
++interface InputMediaVideo extends InputMediaBase {
++	type: 'video'
++	width?: number | undefined
++	height?: number | undefined
++	duration?: number | undefined
++	supports_streaming?: boolean | undefined
++}
++
++type InputMedia = InputMediaPhoto | InputMediaVideo
++
++interface VideoNote extends FileBase {
++	length: number
++	duration: number
++	thumb?: PhotoSize | undefined
++}
++
++interface Game {
++	title: string
++	description: string
++	photo: PhotoSize[]
++	text?: string | undefined
++	text_entities?: MessageEntity[] | undefined
++	animation?: Animation | undefined
++}
++
++interface Animation extends FileBase {
++	width: number
++	height: number
++	duration: number
++	thumb?: PhotoSize | undefined
++	file_name?: string | undefined
++	mime_type?: string | undefined
++}
++
++interface MaskPosition {
++	point: string
++	x_shift: number
++	y_shift: number
++	scale: number
++}
++
++interface Sticker {
++	file_id: string
++	file_unique_id: string
++	is_animated: boolean
++	width: number
++	height: number
++	thumb?: PhotoSize | undefined
++	emoji?: string | undefined
++	set_name?: string | undefined
++	mask_position?: MaskPosition | undefined
++	file_size?: number | undefined
++}
++
++interface Contact {
++	phone_number: string
++	first_name: string
++	last_name?: string | undefined
++	user_id?: number | undefined
++	vcard?: string | undefined
++}
++
++interface Venue {
++	location: Location
++	title: string
++	address: string
++	foursquare_id?: string | undefined
++	foursquare_type?: string | undefined
++}
++
++type PollType = 'regular' | 'quiz'
++
++interface PollAnswer {
++	poll_id: string
++	user: User
++	option_ids: number[]
++}
++
++interface PollOption {
++	text: string
++	voter_count: number
++}
++
++interface Poll {
++	id: string
++	question: string
++	options: PollOption[]
++	is_closed: boolean
++	is_anonymous: boolean
++	allows_multiple_answers: boolean
++	type: PollType
++	total_voter_count: number
++}
++
++interface Invoice {
++	title: string
++	description: string
++	start_parameter: string
++	currency: string
++	total_amount: number
++}
++
++interface ShippingAddress {
++	country_code: string
++	state: string
++	city: string
++	street_line1: string
++	street_line2: string
++	post_code: string
++}
++
++interface OrderInfo {
++	name?: string | undefined
++	phone_number?: string | undefined
++	email?: string | undefined
++	shipping_address?: ShippingAddress | undefined
++}
++
++interface SuccessfulPayment {
++	currency: string
++	total_amount: number
++	invoice_payload: string
++	shipping_option_id?: string | undefined
++	order_info?: OrderInfo | undefined
++	telegram_payment_charge_id: string
++	provider_payment_charge_id: string
++}
++
++interface PassportFile {
++	file_id: string
++	file_size: number
++	file_date: number
++}
++
++interface EncryptedPassportElement {
++	type: string
++	data?: string | undefined
++	phone_number?: string | undefined
++	email?: string | undefined
++	files?: PassportFile[] | undefined
++	front_side?: PassportFile | undefined
++	reverse_side?: PassportFile | undefined
++	selfie?: PassportFile | undefined
++	translation?: PassportFile[] | undefined
++	hash: string
++}
++
++interface EncryptedCredentials {
++	data: string
++	hash: string
++	secret: string
++}
++
++interface PassportData {
++	data: EncryptedPassportElement[]
++	credentials: EncryptedCredentials
++}
++
++export interface InlineKeyboardMarkup {
++	inline_keyboard: InlineKeyboardButton[][]
++}
++
++type CallbackGame = object
++
++interface LoginUrl {
++	url: string
++	forward_text?: string | undefined
++	bot_username?: string | undefined
++	request_write_acces?: boolean | undefined
++}
++
++interface InlineKeyboardButton {
++	text: string
++	url?: string | undefined
++	login_url?: LoginUrl | undefined
++	callback_data?: string | undefined
++	switch_inline_query?: string | undefined
++	switch_inline_query_current_chat?: string | undefined
++	callback_game?: CallbackGame | undefined
++	pay?: boolean | undefined
++}
++
++interface ChosenInlineResult {
++	result_id: string
++	from: User
++	location?: Location | undefined
++	inline_message_id?: string | undefined
++	query: string
++}
++
++interface CallbackQuery {
++	id: string
++	from: User
++	message?: Message | undefined
++	inline_message_id?: string | undefined
++	chat_instance: string
++	data?: string | undefined
++	game_short_name?: string | undefined
++}
++
++interface ShippingQuery {
++	id: string
++	from: User
++	invoice_payload: string
++	shipping_address: ShippingAddress
++}
++
++interface PreCheckoutQuery {
++	id: string
++	from: User
++	currency: string
++	total_amount: number
++	invoice_payload: string
++	shipping_option_id?: string | undefined
++	order_info?: OrderInfo | undefined
++}
++
++export interface Message {
++	message_id: number
++	from?: User | undefined
++	date: number
++	chat: Chat
++	forward_from?: User | undefined
++	forward_from_chat?: Chat | undefined
++	forward_from_message_id?: number | undefined
++	forward_signature?: string | undefined
++	forward_sender_name?: string | undefined
++	forward_date?: number | undefined
++	reply_to_message?: Message | undefined
++	edit_date?: number | undefined
++	media_group_id?: string | undefined
++	author_signature?: string | undefined
++	text?: string | undefined
++	entities?: MessageEntity[] | undefined
++	caption_entities?: MessageEntity[] | undefined
++	audio?: Audio | undefined
++	document?: Document | undefined
++	animation?: Animation | undefined
++	game?: Game | undefined
++	photo?: PhotoSize[] | undefined
++	sticker?: Sticker | undefined
++	video?: Video | undefined
++	voice?: Voice | undefined
++	video_note?: VideoNote | undefined
++	caption?: string | undefined
++	contact?: Contact | undefined
++	location?: Location | undefined
++	venue?: Venue | undefined
++	poll?: Poll | undefined
++	new_chat_members?: User[] | undefined
++	left_chat_member?: User | undefined
++	new_chat_title?: string | undefined
++	new_chat_photo?: PhotoSize[] | undefined
++	delete_chat_photo?: boolean | undefined
++	group_chat_created?: boolean | undefined
++	supergroup_chat_created?: boolean | undefined
++	channel_chat_created?: boolean | undefined
++	migrate_to_chat_id?: number | undefined
++	migrate_from_chat_id?: number | undefined
++	pinned_message?: Message | undefined
++	invoice?: Invoice | undefined
++	successful_payment?: SuccessfulPayment | undefined
++	connected_website?: string | undefined
++	passport_data?: PassportData | undefined
++	reply_markup?: InlineKeyboardMarkup | undefined
++}
++
++export interface Update {
++	update_id: number
++	message?: Message | undefined
++	edited_message?: Message | undefined
++	channel_post?: Message | undefined
++	edited_channel_post?: Message | undefined
++	inline_query?: InlineQuery | undefined
++	chosen_inline_result?: ChosenInlineResult | undefined
++	callback_query?: CallbackQuery | undefined
++	shipping_query?: ShippingQuery | undefined
++	pre_checkout_query?: PreCheckoutQuery | undefined
++}
+diff --git a/cryptocurrency-commutator/bot/tsconfig.json b/cryptocurrency-commutator/bot/tsconfig.json
+new file mode 100644
+index 0000000..1547d8d
+--- /dev/null
++++ b/cryptocurrency-commutator/bot/tsconfig.json
+@@ -0,0 +1,106 @@
++{
++	"compilerOptions": {
++		/* Visit https://aka.ms/tsconfig.json to read more about this file */
++
++		/* Projects */
++		// "incremental": true,                              /* Enable incremental compilation */
++		// "composite": true,                                /* Enable constraints that allow a TypeScript project to be used with project references. */
++		// "tsBuildInfoFile": "./",                          /* Specify the folder for .tsbuildinfo incremental compilation files. */
++		// "disableSourceOfProjectReferenceRedirect": true,  /* Disable preferring source files instead of declaration files when referencing composite projects */
++		// "disableSolutionSearching": true,                 /* Opt a project out of multi-project reference checking when editing. */
++		// "disableReferencedProjectLoad": true,             /* Reduce the number of projects loaded automatically by TypeScript. */
++
++		/* Language and Environment */
++		"target": "es2016" /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */,
++		"lib": [
++			"ES2016",
++			"DOM"
++		] /* Specify a set of bundled library declaration files that describe the target runtime environment. */,
++		// "jsx": "preserve",                                /* Specify what JSX code is generated. */
++		// "experimentalDecorators": true,                   /* Enable experimental support for TC39 stage 2 draft decorators. */
++		// "emitDecoratorMetadata": true,                    /* Emit design-type metadata for decorated declarations in source files. */
++		// "jsxFactory": "",                                 /* Specify the JSX factory function used when targeting React JSX emit, e.g. 'React.createElement' or 'h' */
++		// "jsxFragmentFactory": "",                         /* Specify the JSX Fragment reference used for fragments when targeting React JSX emit e.g. 'React.Fragment' or 'Fragment'. */
++		// "jsxImportSource": "",                            /* Specify module specifier used to import the JSX factory functions when using `jsx: react-jsx*`.` */
++		// "reactNamespace": "",                             /* Specify the object invoked for `createElement`. This only applies when targeting `react` JSX emit. */
++		// "noLib": true,                                    /* Disable including any library files, including the default lib.d.ts. */
++		// "useDefineForClassFields": true,                  /* Emit ECMAScript-standard-compliant class fields. */
++
++		/* Modules */
++		"module": "commonjs" /* Specify what module code is generated. */,
++		"rootDir": "./src/" /* Specify the root folder within your source files. */,
++		"moduleResolution": "node" /* Specify how TypeScript looks up a file from a given module specifier. */,
++		"baseUrl": "./src" /* Specify the base directory to resolve non-relative module names. */,
++		"paths": {
++			"@util/*": ["util/*"]
++		} /* Specify a set of entries that re-map imports to additional lookup locations. */,
++		// "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */
++		// "typeRoots": [],                                  /* Specify multiple folders that act like `./node_modules/@types`. */
++		// "types": [],                                      /* Specify type package names to be included without being referenced in a source file. */
++		// "allowUmdGlobalAccess": true,                     /* Allow accessing UMD globals from modules. */
++		// "resolveJsonModule": true,                        /* Enable importing .json files */
++		// "noResolve": true,                                /* Disallow `import`s, `require`s or `<reference>`s from expanding the number of files TypeScript should add to a project. */
++
++		/* JavaScript Support */
++		// "allowJs": true,                                  /* Allow JavaScript files to be a part of your program. Use the `checkJS` option to get errors from these files. */
++		// "checkJs": true,                                  /* Enable error reporting in type-checked JavaScript files. */
++		// "maxNodeModuleJsDepth": 1,                        /* Specify the maximum folder depth used for checking JavaScript files from `node_modules`. Only applicable with `allowJs`. */
++
++		/* Emit */
++		// "declaration": true,                              /* Generate .d.ts files from TypeScript and JavaScript files in your project. */
++		// "declarationMap": true,                           /* Create sourcemaps for d.ts files. */
++		// "emitDeclarationOnly": true,                      /* Only output d.ts files and not JavaScript files. */
++		// "sourceMap": true,                                /* Create source map files for emitted JavaScript files. */
++		// "outFile": "./",                                  /* Specify a file that bundles all outputs into one JavaScript file. If `declaration` is true, also designates a file that bundles all .d.ts output. */
++		"outDir": "./compiled" /* Specify an output folder for all emitted files. */,
++		// "removeComments": true,                           /* Disable emitting comments. */
++		// "noEmit": true,                                   /* Disable emitting files from a compilation. */
++		// "importHelpers": true,                            /* Allow importing helper functions from tslib once per project, instead of including them per-file. */
++		// "importsNotUsedAsValues": "remove",               /* Specify emit/checking behavior for imports that are only used for types */
++		// "downlevelIteration": true,                       /* Emit more compliant, but verbose and less performant JavaScript for iteration. */
++		// "sourceRoot": "",                                 /* Specify the root path for debuggers to find the reference source code. */
++		// "mapRoot": "",                                    /* Specify the location where debugger should locate map files instead of generated locations. */
++		// "inlineSourceMap": true,                          /* Include sourcemap files inside the emitted JavaScript. */
++		// "inlineSources": true,                            /* Include source code in the sourcemaps inside the emitted JavaScript. */
++		// "emitBOM": true,                                  /* Emit a UTF-8 Byte Order Mark (BOM) in the beginning of output files. */
++		// "newLine": "crlf",                                /* Set the newline character for emitting files. */
++		// "stripInternal": true,                            /* Disable emitting declarations that have `@internal` in their JSDoc comments. */
++		// "noEmitHelpers": true,                            /* Disable generating custom helper functions like `__extends` in compiled output. */
++		// "noEmitOnError": true,                            /* Disable emitting files if any type checking errors are reported. */
++		// "preserveConstEnums": true,                       /* Disable erasing `const enum` declarations in generated code. */
++		// "declarationDir": "./",                           /* Specify the output directory for generated declaration files. */
++		// "preserveValueImports": true,                     /* Preserve unused imported values in the JavaScript output that would otherwise be removed. */
++
++		/* Interop Constraints */
++		// "isolatedModules": true,                          /* Ensure that each file can be safely transpiled without relying on other imports. */
++		// "allowSyntheticDefaultImports": true,             /* Allow 'import x from y' when a module doesn't have a default export. */
++		"esModuleInterop": true /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables `allowSyntheticDefaultImports` for type compatibility. */,
++		// "preserveSymlinks": true,                         /* Disable resolving symlinks to their realpath. This correlates to the same flag in node. */
++		"forceConsistentCasingInFileNames": true /* Ensure that casing is correct in imports. */,
++
++		/* Type Checking */
++		"strict": true /* Enable all strict type-checking options. */,
++		"noImplicitAny": false /* Enable error reporting for expressions and declarations with an implied `any` type.. */,
++		// "strictNullChecks": true,                         /* When type checking, take into account `null` and `undefined`. */
++		// "strictFunctionTypes": true,                      /* When assigning functions, check to ensure parameters and the return values are subtype-compatible. */
++		// "strictBindCallApply": true,                      /* Check that the arguments for `bind`, `call`, and `apply` methods match the original function. */
++		// "strictPropertyInitialization": true,             /* Check for class properties that are declared but not set in the constructor. */
++		// "noImplicitThis": true,                           /* Enable error reporting when `this` is given the type `any`. */
++		// "useUnknownInCatchVariables": true,               /* Type catch clause variables as 'unknown' instead of 'any'. */
++		// "alwaysStrict": true,                             /* Ensure 'use strict' is always emitted. */
++		// "noUnusedLocals": true,                           /* Enable error reporting when a local variables aren't read. */
++		// "noUnusedParameters": true,                       /* Raise an error when a function parameter isn't read */
++		// "exactOptionalPropertyTypes": true,               /* Interpret optional property types as written, rather than adding 'undefined'. */
++		// "noImplicitReturns": true,                        /* Enable error reporting for codepaths that do not explicitly return in a function. */
++		// "noFallthroughCasesInSwitch": true,               /* Enable error reporting for fallthrough cases in switch statements. */
++		// "noUncheckedIndexedAccess": true,                 /* Include 'undefined' in index signature results */
++		// "noImplicitOverride": true,                       /* Ensure overriding members in derived classes are marked with an override modifier. */
++		// "noPropertyAccessFromIndexSignature": true,       /* Enforces using indexed accessors for keys declared using an indexed type */
++		// "allowUnusedLabels": true,                        /* Disable error reporting for unused labels. */
++		// "allowUnreachableCode": true,                     /* Disable error reporting for unreachable code. */
++
++		/* Completeness */
++		// "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
++		"skipLibCheck": true /* Skip type checking all .d.ts files. */
++	}
++}
