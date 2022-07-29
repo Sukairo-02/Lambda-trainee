@@ -3,7 +3,8 @@ import express from 'express'
 import config from 'config'
 import cron from 'node-cron'
 
-import db from '@util/dbApi'
+import dbApi from '@util/dbApi'
+import dbBot from '@util/dbBot'
 import dataCollector from '@util/dataCollector'
 import apiRouter from '@routes/api'
 import botRouter from '@routes/bot'
@@ -13,7 +14,8 @@ import type { dbConfig } from '@util/dbApi/types'
 
 const PORT = config.get<number>('server.PORT') || 3000
 const app = express()
-const dbConfig = config.get<dbConfig>('db')
+const dbApiConfig = config.get<dbConfig>('db')
+const dbBotConfig = config.get<dbConfig>('dbBot')
 
 app.use(express.json())
 
@@ -28,15 +30,17 @@ app.use(<ErrorRequestHandler>((err, req, res, next) => {
 
 const start = async () => {
 	try {
-		await db.connect(dbConfig)
-		await db.init()
+		dbApi.setConfig(dbApiConfig)
+		dbBot.setConfig(dbBotConfig)
+
+		await dbApi.init()
+		await dbBot.init()
+
 		app.listen(PORT, () => {
 			console.log(`Server has been started at port ${PORT}`)
 		})
 	} catch (e) {
 		console.log(e)
-	} finally {
-		await db.disconnect()
 	}
 }
 
@@ -44,9 +48,7 @@ start()
 
 cron.schedule('0 */5 * * * *', async () => {
 	try {
-		await db.connect(dbConfig)
-		await db.store(await dataCollector())
-		await db.disconnect()
+		await dbApi.store(await dataCollector())
 	} catch (e) {
 		console.log(e)
 	}

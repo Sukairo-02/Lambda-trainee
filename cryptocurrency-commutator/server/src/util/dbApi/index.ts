@@ -6,58 +6,56 @@ const toSqlDatetime = (date: Date) =>
 	new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 19).replace('T', ' ')
 
 class dbApi {
-	private db: mysql2.Connection | undefined
+	private db: mysql2.Pool | undefined
+	private config: dbConfig | undefined
+	private connection: mysql2.PoolConnection | undefined
 	constructor() {}
-	public connect = async (config: dbConfig) => {
+
+	public setConfig = (config: dbConfig) => {
+		this.config = config
+	}
+
+	private connect = async () => {
 		try {
+			if (!this.config) {
+				throw new Error('You must set the config first!')
+			}
+
 			if (this.db) {
 				console.log('Database: skipping connection - already connected')
 			}
-			this.db = await mysql2.createConnection(config)
+			this.db = await mysql2.createPool({ ...this.config, debug: false, connectionLimit: 10 })
 			console.log('Database: connection estabilished')
 		} catch (e) {
 			console.log(e)
+			this.connection?.release()
 		}
-	}
-
-	public disconnect = async () => {
-		await this.db?.end()
-		this.db = undefined
-		console.log('Database: connection terminated')
 	}
 
 	public init = async () => {
 		if (!this.db) {
-			throw new Error('Database error: you must connect to the database first!')
+			await this.connect()
 		}
 
 		try {
-			await this.db.query(
+			const connection = await this.db?.getConnection()
+			this.connection = connection
+			await connection?.query(
 				'CREATE TABLE crypto (symbol VARCHAR(10) NOT NULL, timestamp datetime NOT NULL, coinbasePrice DOUBLE, coinstatsPrice DOUBLE, coinpaprikaPrice DOUBLE, kucoinPrice DOUBLE, coinmarketcapPrice DOUBLE);'
 			)
+			connection?.release()
 		} catch (e) {
 			if ((<mysql2.QueryError>e)?.code === 'ER_TABLE_EXISTS_ERROR') {
 				return console.log('Database: Table already exists - skipping initialization')
 			}
 			console.log(e)
-		}
-	}
-
-	public describe = async () => {
-		if (!this.db) {
-			throw new Error('Database error: you must connect to the database first!')
-		}
-
-		try {
-			console.log((await this.db.query('DESCRIBE crypto;'))[0])
-		} catch (e) {
-			console.log(e)
+			this.connection?.release()
 		}
 	}
 
 	public store = async (cryptoData: cryptoData) => {
 		if (!this.db) {
-			throw new Error('Database error: you must connect to the database first!')
+			await this.connect()
 		}
 
 		try {
@@ -75,12 +73,16 @@ class dbApi {
 				])
 			}
 
-			await this.db.query(
+			const connection = await this.db?.getConnection()
+			this.connection = connection
+			await connection?.query(
 				'INSERT INTO crypto(symbol, timestamp, coinbasePrice, coinstatsPrice, coinpaprikaPrice, kucoinPrice, coinmarketcapPrice) VALUES ?',
 				[prepared]
 			)
+			connection?.release()
 		} catch (e) {
 			console.log(e)
+			this.connection?.release()
 		}
 	}
 
@@ -91,7 +93,7 @@ class dbApi {
 		api?: apis[] | undefined
 	) => {
 		if (!this.db) {
-			throw new Error('Database error: you must connect to the database first!')
+			await this.connect()
 		}
 
 		try {
@@ -113,8 +115,10 @@ class dbApi {
 				api = undefined
 			}
 
-			return (
-				await this.db.query(
+			const connection = await this.db?.getConnection()
+			this.connection = connection
+			const result = (
+				await connection?.query(
 					`SELECT ${
 						api
 							? `symbol, timestamp, ${api.shift()}Price${api.reduce(
@@ -136,8 +140,11 @@ class dbApi {
 					}`
 				)
 			)?.[0]
+			connection?.release()
+			return result
 		} catch (e) {
 			console.log(e)
+			this.connection?.release()
 		}
 	}
 
@@ -147,7 +154,7 @@ class dbApi {
 		api?: apis[] | undefined
 	) => {
 		if (!this.db) {
-			throw new Error('Database error: you must connect to the database first!')
+			await this.connect()
 		}
 
 		try {
@@ -171,8 +178,10 @@ class dbApi {
 
 			const apiFirst = api?.[0]
 
-			return (
-				await this.db.query(
+			const connection = await this.db?.getConnection()
+			this.connection = connection
+			const result = (
+				await connection?.query(
 					`SELECT symbol, ${
 						api
 							? `AVG(${apiFirst}Price) as ${api.shift()}Price ${api.reduce(
@@ -194,8 +203,12 @@ class dbApi {
 					} GROUP BY symbol;`
 				)
 			)?.[0]
+
+			connection?.release()
+			return result
 		} catch (e) {
 			console.log(e)
+			this.connection?.release()
 		}
 	}
 }

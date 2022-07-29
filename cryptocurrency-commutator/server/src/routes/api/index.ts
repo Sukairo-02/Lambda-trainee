@@ -14,9 +14,7 @@ const dbConfig = config.get<dbConfig>('db')
 const dataLackWarning = 'Warning: missing data on some time during selected period, results might be inaccurate.'
 
 router.get('/average', [xtractApis, xtractPeriod, xtractSymbols], async (req: Request, res: Response) => {
-	await db.connect(dbConfig)
 	const result = await db.getAvg(req.symbols?.accepted, req.period, <apis[] | undefined>req.apis?.accepted)
-	await db.disconnect()
 
 	if (
 		req.period &&
@@ -31,9 +29,7 @@ router.get('/average', [xtractApis, xtractPeriod, xtractSymbols], async (req: Re
 })
 
 router.get('/period', [xtractApis, xtractPeriod, xtractSymbols], async (req: Request, res: Response) => {
-	await db.connect(dbConfig)
 	const result = await db.getPeriod(req.symbols?.accepted, req.period, <apis[] | undefined>req.apis?.accepted)
-	await db.disconnect()
 
 	res.json({ result, apis: req.apis, symbols: req.symbols })
 })

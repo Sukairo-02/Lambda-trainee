@@ -42,7 +42,7 @@ export = <RequestHandler>((req, res, next) => {
 		)
 
 	if (req.body.symbols && !result.accepted?.length) {
-		return res.status(403).json(result)
+		return res.status(403).json({ symbols: result })
 	}
 
 	if (!result.dismissed?.length) {

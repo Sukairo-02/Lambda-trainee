@@ -2,39 +2,50 @@ import mysql2 from 'mysql2/promise'
 import { dbConfig } from './types'
 
 class dbBot {
-	private db: mysql2.Connection | undefined
+	private db: mysql2.Pool | undefined
+	private config: dbConfig | undefined
+	private connection: mysql2.PoolConnection | undefined
 	constructor() {}
-	public connect = async (config: dbConfig) => {
+
+	public setConfig = (config: dbConfig) => {
+		this.config = config
+	}
+
+	private connect = async () => {
 		try {
+			if (!this.config) {
+				throw new Error('You must set the config first!')
+			}
+
 			if (this.db) {
 				console.log('Bot database: skipping connection - already connected')
 			}
-			this.db = await mysql2.createConnection(config)
+			this.db = await mysql2.createPool({ ...this.config, debug: false, connectionLimit: 10 })
 			console.log('Bot database: connection estabilished')
 		} catch (e) {
 			console.log(e)
 		}
 	}
 
-	public disconnect = async () => {
-		await this.db?.end()
-		this.db = undefined
-		console.log('Bot database: connection terminated')
-	}
-
 	public init = async () => {
 		if (!this.db) {
-			throw new Error('Bot database error: you must connect to the database first!')
+			await this.connect()
 		}
 
 		try {
-			await this.db.query('CREATE TABLE favorites (user VARCHAR(255) NOT NULL, favorite VARCHAR(255) NOT NULL);')
-			await this.db.query('CREATE UNIQUE INDEX uq_favorites ON favorites(user, favorite)')
+			const connection = await this.db?.getConnection()
+			this.connection = connection
+			await connection?.query(
+				'CREATE TABLE favorites (user VARCHAR(255) NOT NULL, favorite VARCHAR(255) NOT NULL);'
+			)
+			await connection?.query('CREATE UNIQUE INDEX uq_favorites ON favorites(user, favorite)')
+			connection?.release()
 		} catch (e) {
 			if ((<mysql2.QueryError>e)?.code === 'ER_TABLE_EXISTS_ERROR') {
 				return console.log('Bot database: Table already exists - skipping initialization')
 			}
 			console.log(e)
+			this.connection?.release()
 		}
 	}
 
@@ -43,7 +54,7 @@ class dbBot {
 		symbols: string[]
 	): Promise<{ result?: { user: string; favorites: string }[]; warning?: string | undefined } | undefined> => {
 		if (!this.db) {
-			throw new Error('Bot database error: you must connect to the database first!')
+			await this.connect()
 		}
 
 		try {
@@ -59,7 +70,12 @@ class dbBot {
 					>await this.get(user) }
 			}
 
-			await this.db.query('INSERT INTO favorites (user, favorite) VALUES ?', [symbols.map((e) => [user, e])])
+			const connection = await this.db?.getConnection()
+			this.connection = connection
+
+			await connection?.query('INSERT INTO favorites (user, favorite) VALUES ?', [symbols.map((e) => [user, e])])
+
+			connection?.release()
 
 			return { result: <
 					[
@@ -102,12 +118,13 @@ class dbBot {
 				}
 			}
 			console.log(e)
+			this.connection?.release()
 		}
 	}
 
 	public remove = async (user: string, symbols: string[]) => {
 		if (!this.db) {
-			throw new Error('Bot database error: you must connect to the database first!')
+			await this.connect()
 		}
 
 		try {
@@ -115,27 +132,40 @@ class dbBot {
 				return await this.get(user)
 			}
 
-			await this.db.query('DELETE FROM favorites WHERE (user, favorite) IN (?)', [symbols.map((e) => [user, e])])
+			const connection = await this.db?.getConnection()
+			this.connection = connection
+			await connection?.query('DELETE FROM favorites WHERE (user, favorite) IN (?)', [
+				symbols.map((e) => [user, e])
+			])
+			connection?.release()
+
 			return await this.get(user)
 		} catch (e) {
 			console.log(e)
+			this.connection?.release()
 		}
 	}
 
 	public get = async (user: string) => {
 		if (!this.db) {
-			throw new Error('Bot database error: you must connect to the database first!')
+			await this.connect()
 		}
 
 		try {
-			return (
-				await this.db.query(
+			const connection = await this.db?.getConnection()
+			this.connection = connection
+			const result = (
+				await connection?.query(
 					'SELECT user, GROUP_CONCAT(favorite SEPARATOR ",") as favorites FROM favorites WHERE user = ? GROUP BY user',
 					[user]
 				)
 			)?.[0]
+
+			connection?.release()
+			return result
 		} catch (e) {
 			console.log(e)
+			this.connection?.release()
 		}
 	}
 }
