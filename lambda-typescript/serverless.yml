@@ -1,0 +1,24 @@
+service: lambda-typescript
+frameworkVersion: '3'
+
+provider:
+    name: aws
+    runtime: nodejs14.x
+    region: eu-north-1
+
+functions:
+    hello:
+        handler: src/index.hello
+        events:
+            - httpApi:
+                  path: /hello
+                  method: get
+    helloName:
+        handler: src/index.helloName
+        events:
+            - httpApi:
+                  path: /helloName
+                  method: post
+
+plugins:
+    - serverless-webpack
