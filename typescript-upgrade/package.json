@@ -1,0 +1,30 @@
+{
+  "name": "typescript-upgrade",
+  "version": "1.0.0",
+  "description": "",
+  "main": "compiled/app.js",
+  "scripts": {
+    "test": "tsc && node compiled/app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sukairo-02/Lambda-trainee.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Sukairo-02/Lambda-trainee/issues"
+  },
+  "homepage": "https://github.com/Sukairo-02/Lambda-trainee#readme",
+  "dependencies": {
+    "@types/inquirer": "^9.0.1",
+    "inquirer": "^8.2.3",
+    "module-alias": "^2.2.2",
+    "typescript": "^4.8.2",
+    "zod": "^3.18.0"
+  },
+  "_moduleAliases": {
+    "@tasks": "compiled/tasks",
+    "@util": "compiled/util"
+  }
+}
