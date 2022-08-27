@@ -1,6 +1,5 @@
 import 'module-alias/register'
 import type { DistinctQuestion } from 'inquirer'
-import type { TaskBase } from '@util/TaskBase'
 import inquirer from 'inquirer'
 import AllAny from '@tasks/AllAny'
 import GroupBy from '@tasks/GroupBy'
