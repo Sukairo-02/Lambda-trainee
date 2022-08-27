@@ -1,5 +1,4 @@
 import { TaskBase } from '@util/TaskBase'
-import z from 'zod'
 import inquirer from 'inquirer'
 import { exec } from 'child_process'
 import replaceLast from '@util/replaceLast'
