@@ -24,7 +24,7 @@ type ArrayElement<ArrayType extends readonly unknown[]> = ArrayType extends read
 	? ElementType
 	: never
 
-class GroupBy implements TaskBase<string[]> {
+class GroupBy implements TaskBase<string> {
 	private hasOpened = false
 	private data = [
 		{ emoji: '😀', sad: false, color: 'Yellow' },
@@ -55,7 +55,7 @@ class GroupBy implements TaskBase<string[]> {
 		).testData
 	}
 
-	execute(input) {
+	execute(input: string) {
 		const grouped = this.data.groupBy(this.predicates[input])
 		let resStr = ''
 		for (const [key, value] of Object.entries(grouped)) {
