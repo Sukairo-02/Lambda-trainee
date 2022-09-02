@@ -1,0 +1,117 @@
+service: image-storage
+frameworkVersion: '3'
+
+provider:
+    name: aws
+    runtime: nodejs14.x
+    region: eu-north-1
+    environment:
+        userPoolId: { Ref: UserPool }
+        clientId: { Ref: UserClient }
+    iamRoleStatements:
+        - Effect: Allow
+          Action:
+              - cognito-idp:AdminInitiateAuth
+              - cognito-idp:AdminCreateUser
+              - cognito-idp:AdminSetUserPassword
+          Resource: '*'
+
+functions:
+    userSignup:
+        handler: src/index.userSignup
+        events:
+            - http:
+                  path: /user/signup
+                  method: post
+
+    userRefresh:
+        handler: src/index.userRefresh
+        events:
+            - http:
+                  path: /user/signup
+                  method: get
+
+    userRegister:
+        handler: src/index.userRegister
+        events:
+            - http:
+                  path: /user/register
+                  method: post
+
+    getImages:
+        handler: src/index.getImages
+        events:
+            - http:
+                  path: /images
+                  method: get
+                  authorizer:
+                      name: PrivateAuthorizer
+                      type: COGNITO_USER_POOLS
+                      arn:
+                          Fn::GetAtt:
+                              - UserPool
+                              - Arn
+                      claims:
+                          - email
+
+    postImages:
+        handler: src/index.postImages
+        events:
+            - http:
+                  path: /images
+                  method: post
+                  authorizer:
+                      name: PrivateAuthorizer
+                      type: COGNITO_USER_POOLS
+                      arn:
+                          Fn::GetAtt:
+                              - UserPool
+                              - Arn
+                      claims:
+                          - email
+
+    deleteImages:
+        handler: src/index.deleteImages
+        events:
+            - http:
+                  path: /images
+                  method: delete
+                  authorizer:
+                      name: PrivateAuthorizer
+                      type: COGNITO_USER_POOLS
+                      arn:
+                          Fn::GetAtt:
+                              - UserPool
+                              - Arn
+                      claims:
+                          - email
+
+resources:
+    Resources:
+        UserPool:
+            Type: AWS::Cognito::UserPool
+            Properties:
+                UserPoolName: serverless-auth-pool
+                Schema:
+                    - Name: email
+                      Required: true
+                      Mutable: true
+                Policies:
+                    PasswordPolicy:
+                        MinimumLength: 6
+                AutoVerifiedAttributes: ['email']
+
+        UserClient:
+            Type: AWS::Cognito::UserPoolClient
+            Properties:
+                ClientName: user-pool-ui
+                GenerateSecret: false
+                UserPoolId: { Ref: UserPool }
+                AccessTokenValidity: 5
+                IdTokenValidity: 5
+                ExplicitAuthFlows:
+                    - 'ADMIN_NO_SRP_AUTH'
+                    - 'REFRESH_TOKEN_AUTH'
+
+plugins:
+    - serverless-webpack
