@@ -2,6 +2,7 @@ import { TaskBase } from '@util/TaskBase'
 import inquirer from 'inquirer'
 import { exec } from 'child_process'
 import replaceLast from '@util/replaceLast'
+import type { ArrayElement } from '@util/ArrayElement'
 
 //Solution {
 declare global {
@@ -19,10 +20,6 @@ Array.prototype.groupBy = function (callback: (element: any) => string) {
 	return res
 }
 //}
-
-type ArrayElement<ArrayType extends readonly unknown[]> = ArrayType extends readonly (infer ElementType)[]
-	? ElementType
-	: never
 
 class GroupBy implements TaskBase<string> {
 	private hasOpened = false
