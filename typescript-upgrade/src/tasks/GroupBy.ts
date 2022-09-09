@@ -7,6 +7,11 @@ import type { ArrayElement } from '@util/ArrayElement'
 //Solution {
 declare global {
 	interface Array<T> {
+		/**
+		 * Groups elements of the original array by the key returned by the given callback function applied to each element and returns a map where each group key is associated with a list of corresponding elements.
+		 * @param callback Function that determines a key to which element will be assigned
+		 * @param element Processed element of an array
+		 */
 		groupBy: (callback: (element: T) => string) => { [key: string]: T[] }
 	}
 }

@@ -7,7 +7,13 @@ import replaceLast from '@util/replaceLast'
 //Solution {
 declare global {
 	interface Array<T> {
+		/**
+		 * Returns true if all elements match the given predicate.
+		 */
 		any: (callback: (element: T) => boolean) => boolean
+		/**
+		 * Returns true if one of the elements matches the given predicate.
+		 */
 		all: (callback: (element: T) => boolean) => boolean
 	}
 }
