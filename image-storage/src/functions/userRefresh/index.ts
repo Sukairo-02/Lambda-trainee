@@ -14,7 +14,7 @@ const helloName = <
 		typeof schema.queryStringParameters
 	>
 >(async (event) => {
-	const refreshToken = event.headers.Authorization.split(' ')[1]
+	const refreshToken = event.headers.Refresh
 
 	if (!refreshToken) {
 		throw Boom.badRequest('Invalid refresh token!')
@@ -27,7 +27,7 @@ const helloName = <
 	}
 
 	const params = {
-		AuthFlow: 'REFRESH_TOKEN_AUTH',
+		AuthFlow: 'REFRESH_TOKEN',
 		UserPoolId: userPoolId,
 		ClientId: clientId,
 		AuthParameters: {

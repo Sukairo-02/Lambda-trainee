@@ -3,7 +3,7 @@ import { z } from 'zod'
 export = {
 	body: z.any(),
 	headers: z.object({
-		Authorization: z.string().startsWith('Bearer ')
+		Refresh: z.string()
 	}),
 	pathParameters: z.any(),
 	queryStringParameters: z.any()

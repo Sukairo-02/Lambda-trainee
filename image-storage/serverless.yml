@@ -21,15 +21,15 @@ functions:
         handler: src/index.userSignup
         events:
             - http:
-                  path: /user/signup
+                  path: /user/
                   method: post
 
     userRefresh:
         handler: src/index.userRefresh
         events:
             - http:
-                  path: /user/signup
-                  method: get
+                  path: /user/
+                  method: patch
 
     userRegister:
         handler: src/index.userRegister
@@ -45,7 +45,7 @@ functions:
                   path: /images
                   method: get
                   authorizer:
-                      name: PrivateAuthorizer
+                      name: PrivateAuthorizerImages
                       type: COGNITO_USER_POOLS
                       arn:
                           Fn::GetAtt:
@@ -61,7 +61,7 @@ functions:
                   path: /images
                   method: post
                   authorizer:
-                      name: PrivateAuthorizer
+                      name: PrivateAuthorizerImages
                       type: COGNITO_USER_POOLS
                       arn:
                           Fn::GetAtt:
@@ -77,7 +77,7 @@ functions:
                   path: /images
                   method: delete
                   authorizer:
-                      name: PrivateAuthorizer
+                      name: PrivateAuthorizerImages
                       type: COGNITO_USER_POOLS
                       arn:
                           Fn::GetAtt:
@@ -91,7 +91,7 @@ resources:
         UserPool:
             Type: AWS::Cognito::UserPool
             Properties:
-                UserPoolName: serverless-auth-pool
+                UserPoolName: image-api-auth-pool
                 Schema:
                     - Name: email
                       Required: true
@@ -104,14 +104,13 @@ resources:
         UserClient:
             Type: AWS::Cognito::UserPoolClient
             Properties:
-                ClientName: user-pool-ui
+                ClientName: image-api-user-pool-ui
                 GenerateSecret: false
                 UserPoolId: { Ref: UserPool }
                 AccessTokenValidity: 5
                 IdTokenValidity: 5
                 ExplicitAuthFlows:
                     - 'ADMIN_NO_SRP_AUTH'
-                    - 'REFRESH_TOKEN_AUTH'
 
 plugins:
     - serverless-webpack

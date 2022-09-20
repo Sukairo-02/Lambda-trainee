@@ -10,7 +10,7 @@ const helloName = <
 		typeof schema.queryStringParameters
 	>
 >(async (event) => {
-	return { message: `Post called!` }
+	return { message: `Post called!`, event }
 })
 
 //@ts-ignore - no way to tell TypeScript that this is where function gets those types in the first place
