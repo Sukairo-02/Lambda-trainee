@@ -51,6 +51,7 @@ const validateAndFormat = (
 					}
 				}
 			} else {
+				console.log(request.error)
 				return {
 					statusCode: 500,
 					body: JSON.stringify({ message: 'Something went wrong. Try again later...' }, null, 2)
