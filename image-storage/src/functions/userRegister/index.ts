@@ -6,7 +6,7 @@ import * as Boom from '@hapi/boom'
 
 const cognito = new AWS.CognitoIdentityServiceProvider()
 
-const helloName = <
+const userRegister = <
 	ValidatedHandler<
 		typeof schema.body,
 		typeof schema.headers,
@@ -56,4 +56,4 @@ const helloName = <
 })
 
 //@ts-ignore - no way to tell TypeScript that this is where function gets those types in the first place
-export = middyfy(helloName, schema)
+export = middyfy(userRegister, schema)
