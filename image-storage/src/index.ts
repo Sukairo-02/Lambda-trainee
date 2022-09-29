@@ -5,3 +5,6 @@ export { default as deleteImages } from '@functions/deleteImages'
 export { default as userSignup } from '@functions/userSignup'
 export { default as userRegister } from '@functions/userRegister'
 export { default as userRefresh } from '@functions/userRefresh'
+
+export { default as registerUpload } from '@functions/registerUpload'
+export { default as registerDelete } from '@functions/registerDelete'

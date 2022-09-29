@@ -95,6 +95,22 @@ functions:
                       claims:
                           - email
 
+    registerUpload:
+        handler: src/index.registerUpload
+        events:
+            - s3:
+                  bucket: !Ref S3Bucket
+                  existing: true
+                  event: s3:ObjectCreated:*
+
+    registerDelete:
+        handler: src/index.registerDelete
+        events:
+            - s3:
+                  bucket: !Ref S3Bucket
+                  existing: true
+                  event: s3:ObjectRemoved:*
+
 resources:
     Resources:
         UserPool:
