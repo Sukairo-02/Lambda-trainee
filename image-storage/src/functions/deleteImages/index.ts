@@ -6,7 +6,7 @@ import AWS from 'aws-sdk'
 
 const storage = new AWS.S3()
 
-const helloName = <
+const deleteImages = <
 	ValidatedHandler<
 		typeof schema.body,
 		typeof schema.headers,
@@ -58,4 +58,4 @@ const helloName = <
 })
 
 //@ts-ignore - no way to tell TypeScript that this is where function gets those types in the first place
-export = middyfy(helloName, schema)
+export = middyfy(deleteImages, schema)
