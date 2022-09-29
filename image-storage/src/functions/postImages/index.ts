@@ -7,7 +7,7 @@ import { v4 } from 'uuid'
 
 const storage = new AWS.S3()
 
-const helloName = <
+const postImages = <
 	ValidatedHandler<
 		typeof schema.body,
 		typeof schema.headers,
@@ -49,4 +49,4 @@ const helloName = <
 })
 
 //@ts-ignore - no way to tell TypeScript that this is where function gets those types in the first place
-export = middyfy(helloName, schema)
+export = middyfy(postImages, schema)
