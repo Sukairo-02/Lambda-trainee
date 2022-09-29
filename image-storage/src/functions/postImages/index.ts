@@ -27,7 +27,7 @@ const postImages = <
 		return Boom.internal('Missing bucket name!')
 	}
 
-	const fileName = `${v4()}`
+	const fileName = `${v4()}.img`
 
 	const params = {
 		Bucket: bucketName,
