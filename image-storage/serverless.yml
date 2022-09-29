@@ -6,8 +6,9 @@ provider:
     runtime: nodejs14.x
     region: eu-north-1
     environment:
-        userPoolId: { Ref: UserPool }
-        clientId: { Ref: UserClient }
+        userPoolId: !Ref UserPool
+        clientId: !Ref UserClient
+        bucketName: !Ref S3Bucket
     iamRoleStatements:
         - Effect: Allow
           Action:
@@ -15,6 +16,14 @@ provider:
               - cognito-idp:AdminCreateUser
               - cognito-idp:AdminSetUserPassword
           Resource: '*'
+
+        - Effect: Allow
+          Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+              - lambda:InvokeFunction
+          Resource: !Join ['/', [!GetAtt S3Bucket.Arn, '*']]
 
 functions:
     userSignup:
@@ -111,6 +120,16 @@ resources:
                 IdTokenValidity: 5
                 ExplicitAuthFlows:
                     - 'ADMIN_NO_SRP_AUTH'
+
+        S3Bucket:
+            Type: AWS::S3::Bucket
+            Properties:
+                BucketName: lambda-comp-rekass-image-api-bucket
+                PublicAccessBlockConfiguration:
+                    BlockPublicAcls: true
+                    BlockPublicPolicy: true
+                    IgnorePublicAcls: true
+                    RestrictPublicBuckets: true
 
 plugins:
     - serverless-webpack
