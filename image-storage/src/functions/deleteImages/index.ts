@@ -53,10 +53,6 @@ const deleteImages = <
 				.promise()
 		).Attributes?.files?.values || []
 
-	if (!userFiles.find((e) => e === fileName)) {
-		throw Boom.notFound('Nonexistent file!')
-	}
-
 	await storage.deleteObject({ Bucket: bucketName, Key: `${email}|${fileName}` }).promise()
 
 	return { message: `File list:`, userFiles }
