@@ -7,7 +7,7 @@ import AWS from 'aws-sdk'
 const storage = new AWS.S3()
 const db = new AWS.DynamoDB.DocumentClient()
 
-const deleteImages = <
+const getImages = <
 	ValidatedHandler<
 		typeof schema.body,
 		typeof schema.headers,
@@ -31,36 +31,44 @@ const deleteImages = <
 		throw Boom.internal('Missing bucket name!')
 	}
 
-	const { fileName } = event.body
-
-	const userFiles =
+	let userFiles =
 		(
 			await db
-				.update({
+				.get({
 					TableName: tableName,
 					Key: {
 						email
-					},
-					ReturnValues: 'ALL_NEW',
-					UpdateExpression: 'DELETE #files :fileName',
-					ExpressionAttributeNames: {
-						'#files': 'files'
-					},
-					ExpressionAttributeValues: {
-						':fileName': db.createSet([fileName])
 					}
 				})
 				.promise()
-		).Attributes?.files?.values || []
+		).Item?.files?.values || []
+	const images = event.body?.images //to get only specified list of files
+	if (images) {
+		if (!Array.isArray(images)) {
+			throw Boom.badData('Query param "files" must be JSON-encoded list of strings!')
+		}
 
-	if (!userFiles.find((e) => e === fileName)) {
-		throw Boom.notFound('Nonexistent file!')
+		userFiles = images.filter((e) => userFiles.find((el) => el === e))
 	}
 
-	await storage.deleteObject({ Bucket: bucketName, Key: `${email}|${fileName}` }).promise()
+	const promises: Promise<string>[] = []
+	for (const e of userFiles) {
+		promises.push(
+			storage.getSignedUrlPromise('getObject', {
+				Bucket: bucketName,
+				Key: `${email}|${e}`,
+				Expires: 300
+			})
+		)
+	}
 
-	return { message: `File list:`, userFiles }
+	const links: string[] = []
+	for (const e of promises) {
+		links.push(await e)
+	}
+
+	return { message: `File links:`, links }
 })
 
 //@ts-ignore - no way to tell TypeScript that this is where function gets those types in the first place
-export = middyfy(deleteImages, schema)
+export = middyfy(getImages, schema)

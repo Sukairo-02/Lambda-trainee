@@ -4,7 +4,7 @@ import middyfy from '@libs/middyfy'
 import * as Boom from '@hapi/boom'
 import AWS from 'aws-sdk'
 
-const storage = new AWS.S3()
+const db = new AWS.DynamoDB.DocumentClient()
 
 const getImages = <
 	ValidatedHandler<
@@ -20,33 +20,25 @@ const getImages = <
 		throw Boom.unauthorized('Missing email in requestContext!')
 	}
 
-	const bucketName = process.env.bucketName
+	const { tableName } = process.env
 
-	if (!bucketName) {
-		return Boom.internal('Missing bucket name!')
+	if (!tableName) {
+		throw Boom.internal('Missing table name!')
 	}
 
-	//Some code to get user's filenames from db
+	const files =
+		(
+			await db
+				.get({
+					TableName: tableName,
+					Key: {
+						email
+					}
+				})
+				.promise()
+		).Item?.files || []
 
-	const userFiles = ['file uno.png', 'file two.jpg', 'file три.img']
-
-	const promises: Promise<string>[] = []
-	for (const e of userFiles) {
-		promises.push(
-			storage.getSignedUrlPromise('getObject', {
-				Bucket: bucketName,
-				Key: e,
-				Expires: 300
-			})
-		)
-	}
-
-	const links: string[] = []
-	for (const e of promises) {
-		links.push(await e)
-	}
-
-	return { message: `File list:`, links }
+	return { message: `File list:`, files }
 })
 
 //@ts-ignore - no way to tell TypeScript that this is where function gets those types in the first place

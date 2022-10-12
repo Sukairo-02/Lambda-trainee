@@ -24,22 +24,20 @@ const postImages = <
 	const bucketName = process.env.bucketName
 
 	if (!bucketName) {
-		return Boom.internal('Missing bucket name!')
+		throw Boom.internal('Missing bucket name!')
 	}
 
-	const fileName = `${v4()}.img`
+	const fileName = `${email}|${v4()}.img`
 
 	const params = {
 		Bucket: bucketName,
 		Fields: {
-			key: fileName,
-			email: email
+			key: fileName
 		},
 		Expires: 300,
 		Conditions: [
 			['starts-with', '$Content-Type', 'image/'], //images only
-			['content-length-range', 0, 10485760], //up to 10 MiB
-			['eq', '$email', email] //tag with user's email for usage in db on S3 lambda trigger
+			['content-length-range', 0, 10485760] //up to 10 MiB
 		]
 	}
 

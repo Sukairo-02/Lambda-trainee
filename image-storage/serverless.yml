@@ -5,10 +5,13 @@ provider:
     name: aws
     runtime: nodejs14.x
     region: eu-north-1
+
     environment:
         userPoolId: !Ref UserPool
         clientId: !Ref UserClient
         bucketName: !Ref S3Bucket
+        tableName: !Ref ImageApiTable
+
     iamRoleStatements:
         - Effect: Allow
           Action:
@@ -24,6 +27,17 @@ provider:
               - s3:DeleteObject
               - lambda:InvokeFunction
           Resource: !Join ['/', [!GetAtt S3Bucket.Arn, '*']]
+
+        - Effect: Allow
+          Action:
+              - dynamodb:DescribeTable
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+          Resource: !GetAtt ImageApiTable.Arn
 
 functions:
     userSignup:
@@ -56,10 +70,7 @@ functions:
                   authorizer:
                       name: PrivateAuthorizerImages
                       type: COGNITO_USER_POOLS
-                      arn:
-                          Fn::GetAtt:
-                              - UserPool
-                              - Arn
+                      arn: !GetAtt UserPool.Arn
                       claims:
                           - email
 
@@ -72,10 +83,7 @@ functions:
                   authorizer:
                       name: PrivateAuthorizerImages
                       type: COGNITO_USER_POOLS
-                      arn:
-                          Fn::GetAtt:
-                              - UserPool
-                              - Arn
+                      arn: !GetAtt UserPool.Arn
                       claims:
                           - email
 
@@ -88,10 +96,20 @@ functions:
                   authorizer:
                       name: PrivateAuthorizerImages
                       type: COGNITO_USER_POOLS
-                      arn:
-                          Fn::GetAtt:
-                              - UserPool
-                              - Arn
+                      arn: !GetAtt UserPool.Arn
+                      claims:
+                          - email
+
+    readImages:
+        handler: src/index.readImages
+        events:
+            - http:
+                  path: /images/read
+                  method: post
+                  authorizer:
+                      name: PrivateAuthorizerImages
+                      type: COGNITO_USER_POOLS
+                      arn: !GetAtt UserPool.Arn
                       claims:
                           - email
 
@@ -102,14 +120,6 @@ functions:
                   bucket: !Ref S3Bucket
                   existing: true
                   event: s3:ObjectCreated:*
-
-    registerDelete:
-        handler: src/index.registerDelete
-        events:
-            - s3:
-                  bucket: !Ref S3Bucket
-                  existing: true
-                  event: s3:ObjectRemoved:*
 
 resources:
     Resources:
@@ -146,6 +156,18 @@ resources:
                     BlockPublicPolicy: true
                     IgnorePublicAcls: true
                     RestrictPublicBuckets: true
+
+        ImageApiTable:
+            Type: AWS::DynamoDB::Table
+            Properties:
+                TableName: UserFiles
+                AttributeDefinitions:
+                    - AttributeName: email
+                      AttributeType: S
+                KeySchema:
+                    - AttributeName: email
+                      KeyType: HASH
+                BillingMode: PAY_PER_REQUEST
 
 plugins:
     - serverless-webpack
