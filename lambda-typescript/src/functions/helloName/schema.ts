@@ -1,10 +1,12 @@
 import { z } from 'zod'
+import type { ValidatedHandler } from '@libs/ValidatedHandler'
 
-export = {
+const eventSchema = z.object({
 	body: z.object({
 		name: z.string().min(2).max(40)
-	}),
-	headers: z.any(),
-	pathParameters: z.any(),
-	queryStringParameters: z.any()
-} as const
+	})
+})
+
+type TypedAPIGatewayHandler = ValidatedHandler<z.infer<typeof eventSchema>>
+
+export { eventSchema, TypedAPIGatewayHandler }

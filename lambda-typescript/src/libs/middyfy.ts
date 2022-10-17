@@ -5,19 +5,15 @@ import Boom from '@hapi/boom'
 import type { MiddlewareObj } from '@middy/core'
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Handler } from 'aws-lambda'
 import type { Boom as BoomType } from '@hapi/boom'
-import type { schemaContainer } from '@libs/types'
-import type { ZodError } from 'zod'
+import type { ZodError, ZodSchema } from 'zod'
 
 const validateAndFormat = (
-	validationSchema?: schemaContainer
+	validationSchema?: ZodSchema
 ): MiddlewareObj<APIGatewayProxyEvent, APIGatewayProxyResult> => {
 	return {
 		before: async (request) => {
 			try {
-				validationSchema?.body.parse(request.event.body)
-				validationSchema?.headers.parse(request.event.headers)
-				validationSchema?.pathParameters.parse(request.event.pathParameters)
-				validationSchema?.queryStringParameters.parse(request.event.queryStringParameters)
+				validationSchema?.parse(request)
 			} catch (e) {
 				const newError = Boom.badRequest((<ZodError>e).message)
 				newError.message = JSON.parse(newError.message)
@@ -60,6 +56,6 @@ const validateAndFormat = (
 	}
 }
 
-export = (handler: Handler<APIGatewayProxyEvent, APIGatewayProxyResult>, schema?: schemaContainer) => {
+export = (handler: Handler<APIGatewayProxyEvent, APIGatewayProxyResult>, schema?: ZodSchema) => {
 	return middy(handler).use(middyJsonBodyParser()).use(validateAndFormat(schema))
 }

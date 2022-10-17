@@ -1,17 +1,9 @@
-import schema from './schema'
-import type { ValidatedHandler } from '@libs/ValidatedHandler'
+import { eventSchema, TypedAPIGatewayHandler } from './schema'
 import middyfy from '@libs/middyfy'
 
-const helloName = <
-	ValidatedHandler<
-		typeof schema.body,
-		typeof schema.headers,
-		typeof schema.pathParameters,
-		typeof schema.queryStringParameters
-	>
->(async (event) => {
+const handler = <TypedAPIGatewayHandler>(async (event) => {
 	return { message: `Hello, ${event.body.name}!` }
 })
 
 //@ts-ignore - no way to tell TypeScript that this is where function gets those types in the first place
-export = middyfy(helloName, schema)
+export = middyfy(handler, eventSchema)
