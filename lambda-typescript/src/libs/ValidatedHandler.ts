@@ -1,5 +1,8 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResultV2, Handler } from 'aws-lambda'
 
-type ValidatedAPIGatewayProxyEvent<T> = Omit<APIGatewayProxyEvent, keyof T> & T
+type ValidatedEventHandler<EventType, UpdateWith> = Omit<EventType, keyof UpdateWith> & UpdateWith
 
-export type ValidatedHandler<T> = Handler<ValidatedAPIGatewayProxyEvent<T>, APIGatewayProxyResultV2>
+export type ValidatedHandler<UpdateWith, EventType = APIGatewayProxyEvent, Returns = APIGatewayProxyResultV2> = Handler<
+	ValidatedEventHandler<EventType, UpdateWith>,
+	Returns
+>
