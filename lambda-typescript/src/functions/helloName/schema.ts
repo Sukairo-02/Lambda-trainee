@@ -7,6 +7,6 @@ const eventSchema = z.object({
 	})
 })
 
-type TypedAPIGatewayHandler = ValidatedHandler<z.infer<typeof eventSchema>>
+type TypedEventHandler = ValidatedHandler<z.infer<typeof eventSchema>>
 
-export { eventSchema, TypedAPIGatewayHandler }
+export { eventSchema, TypedEventHandler }

@@ -1,7 +1,7 @@
-import { eventSchema, TypedAPIGatewayHandler } from './schema'
+import { eventSchema, TypedEventHandler } from './schema'
 import middyfy from '@libs/middyfy'
 
-const handler = <TypedAPIGatewayHandler>(async (event) => {
+const handler = <TypedEventHandler>(async (event) => {
 	return { message: `Hello, ${event.body.name}!` }
 })
 
