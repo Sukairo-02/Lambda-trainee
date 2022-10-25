@@ -13,14 +13,14 @@ export = (
 	handler: Handler<APIGatewayProxyEvent, APIGatewayProxyResult>,
 	schema?: ZodSchema | undefined,
 	config: MiddyConfig = {
-		parseBody: true,
+		parseBody: middyJsonBodyParser,
 		validateEvent: true,
 		formatResponse: true,
 		catchErrors: true
 	}
 ) => {
 	let middyfied: any = middy(handler)
-	middyfied = config.parseBody ? middyfied.use(middyJsonBodyParser()) : middyfied
+	middyfied = config.parseBody ? middyfied.use(config.parseBody()) : middyfied
 	middyfied = config.validateEvent ? middyfied.use(validateEvent(schema)) : middyfied
 	middyfied = config.formatResponse ? middyfied.use(formatResponse()) : middyfied
 	middyfied = config.catchErrors ? middyfied.use(catchErrors()) : middyfied
