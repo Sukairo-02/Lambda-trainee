@@ -3,6 +3,8 @@ import type { Boom as BoomType } from '@hapi/boom'
 export = () => {
 	return {
 		onError: async (event) => {
+			console.error(event)
+
 			if ((<BoomType>event?.error).isBoom) {
 				return {
 					statusCode: (<BoomType>event.error).output.statusCode,
