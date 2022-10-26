@@ -4,7 +4,8 @@ frameworkVersion: '3'
 provider:
     name: aws
     runtime: nodejs14.x
-    region: eu-north-1
+    region: ${opt:region, 'eu-north-1'}
+    stage: ${opt:stage, 'dev'}
 
     environment:
         envMessage: This is env message
