@@ -1,7 +1,6 @@
 const path = require('path')
 const slsw = require('serverless-webpack')
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
-//const nodeExternals = require('webpack-node-externals')
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin')
 module.exports = {
 	mode: slsw.lib.webpack.isLocal ? 'development' : 'production',
@@ -17,11 +16,7 @@ module.exports = {
 		path: path.join(__dirname, '.webpack'),
 		filename: '[name].js'
 	},
-	externals: [
-		'aws-sdk',
-		'aws-lambda'
-		// nodeExternals()  - whoever included this in a guide deserves a beating
-	],
+	externals: ['aws-sdk', 'aws-lambda'],
 	module: {
 		rules: [
 			{

@@ -8,7 +8,7 @@ type ObjectFromList<T extends ReadonlyArray<string>, V = string> = {
  */
 const envGet = (...vars: ReadonlyArray<string>) => {
 	const varsParsed: ObjectFromList<typeof vars> = {}
-	for (const e in vars) {
+	for (const e of vars) {
 		if (!process.env[e]) {
 			throw new Error(`Error: ${e} is missing in process.env`)
 		}

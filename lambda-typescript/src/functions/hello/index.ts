@@ -13,3 +13,5 @@ export = <Handler<APIGatewayProxyEvent, APIGatewayProxyResult>>(async (event) =>
 		)
 	}
 })
+
+//Default AWS NodeJS template lambda

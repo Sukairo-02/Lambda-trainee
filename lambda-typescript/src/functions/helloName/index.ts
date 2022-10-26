@@ -1,9 +1,15 @@
-import { eventSchema, TypedEventHandler } from './schema'
-import middyfy from '@libs/middyfy'
+import { eventSchema } from './schema'
+import handler from './handler'
+import jsonBodyParser from '@middy/http-json-body-parser'
+import validateEvent from '@middleware/validateEvent'
+import formatHttpResponse from '@middleware/formatHttpResponse'
+import catchHttpErrors from '@middleware/catchHttpErrors'
+import middy from '@middy/core'
 
-const handler = <TypedEventHandler>(async (event) => {
-	return { message: `Hello, ${event.body.name}!` }
-})
+export = middy(handler)
+	.use(jsonBodyParser())
+	.use(validateEvent(eventSchema))
+	.use(formatHttpResponse)
+	.use(catchHttpErrors)
 
-//@ts-ignore - no way to tell TypeScript that this is where function gets those types in the first place
-export = middyfy(handler, eventSchema)
+//Updated template example

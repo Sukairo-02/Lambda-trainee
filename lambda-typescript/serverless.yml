@@ -6,13 +6,10 @@ provider:
     runtime: nodejs14.x
     region: eu-north-1
 
+    environment:
+        envMessage: This is env message
+
 functions:
-    hello:
-        handler: src/index.hello
-        events:
-            - httpApi:
-                  path: /hello
-                  method: get
     helloName:
         handler: src/index.helloName
         events:

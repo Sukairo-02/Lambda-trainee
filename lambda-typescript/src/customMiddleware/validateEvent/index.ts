@@ -8,8 +8,9 @@ export = (validationSchema?: ZodSchema): MiddlewareObj<APIGatewayProxyEvent, API
 	return {
 		before: async (event) => {
 			try {
-				validationSchema?.parse(event)
+				validationSchema?.parse(event.event)
 			} catch (e) {
+				console.error(event)
 				const newError = Boom.badRequest((<ZodError>e).message)
 				newError.message = JSON.parse(newError.message)
 				throw (<ZodError>e).message ? newError : new Error('Error: Validation failed but empty error received')
