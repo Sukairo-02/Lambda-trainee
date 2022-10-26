@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": "src",
+    "paths": {
+      "@functions/*": ["functions/*"],
+      "@middleware/*": ["customMiddleware/*"],
+      "@util/*": ["util/*"],
+      "@dbAdapters/*": ["dbAdapters/*"]
+    }
+  }
+}

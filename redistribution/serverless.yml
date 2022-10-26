@@ -1,0 +1,86 @@
+service: redistribution
+frameworkVersion: '3'
+
+provider:
+    name: aws
+    runtime: nodejs14.x
+    region: ${opt:region, 'eu-north-1'}
+    stage: ${opt:stage, 'dev'}
+
+    environment:
+        dbHost: !GetAtt Database.Endpoint.Address
+        dbPort: !GetAtt Database.Endpoint.Port
+        dbName: !GetAtt Database.properties.DBName
+        dbUsername: !GetAtt Database.properties.MasterUsername
+        dbPassword: !GetAtt Database.properties.MasterUserPassword
+        dbQueueUrl: !Ref DatabaseQueue
+
+    iamRoleStatements:
+        - Effect: Allow
+          Action:
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+          Resource: !GetAtt DatabaseQueue.Arn
+
+functions:
+    postQuery:
+        handler: src/index.postQuery
+        events:
+            - httpApi:
+                  path: /query
+                  method: post
+
+    handleQuery:
+        handler: src/index.handleQuery
+        events:
+            - sqs:
+                  arn: !GetAtt DatabaseQueue.Arn
+                  batchSize: 10
+                  maximumBatchingWindow: 3
+                  functionResponseType: ReportBatchItemFailures
+
+    #DB initial setup
+    adminDBInit:
+        handler: src/index.dbInit
+        events:
+            - httpApi:
+                  path: /admin/dbInit
+                  method: post
+
+resources:
+    Resources:
+        DBSecurityGroup:
+            Type: AWS::RDS::DBSecurityGroup
+            Properties:
+                DBSecurityGroupIngress:
+                    - CIDRIP: 172.31.0.0/16
+                GroupDescription: Group for Lambda Access
+
+        Database:
+            Type: AWS::RDS::DBInstance
+            Properties:
+                DBInstanceClass: db.t2.micro
+                Engine: postgres
+                EngineVersion: 13.7
+                AllocatedStorage: 20
+                DBInstanceIdentifier: ${self:service}-${self:provider.stage}-instance
+                DBName: redistribution_db
+                MasterUsername: RedistributionRoot-${self:provider.stage}
+                MasterUserPassword: U@0DoiF23pU8
+                DBSecurityGroups:
+                    - Ref: DBSecurityGroup
+                PubliclyAccessible: false
+                AvailabilityZone: !Select [0, !GetAZs '']
+
+        DatabaseQueue:
+            Type: 'AWS::SQS::Queue'
+            Properties:
+                QueueName: redistribution-queue-${self:provider.stage}
+                FifoQueue: false
+                MaximumMessageSize: 1024
+                BatchSize: 10
+                maximumBatchingWindow:
+
+plugins:
+    - serverless-webpack
