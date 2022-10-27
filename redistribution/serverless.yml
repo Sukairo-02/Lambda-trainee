@@ -10,9 +10,9 @@ provider:
     environment:
         dbHost: !GetAtt Database.Endpoint.Address
         dbPort: !GetAtt Database.Endpoint.Port
-        dbName: !GetAtt Database.properties.DBName
-        dbUsername: !GetAtt Database.properties.MasterUsername
-        dbPassword: !GetAtt Database.properties.MasterUserPassword
+        dbName: !GetAtt Database.Properties.DBName
+        dbUsername: !GetAtt Database.Properties.MasterUsername
+        dbPassword: !GetAtt Database.Properties.MasterUserPassword
         dbQueueUrl: !Ref DatabaseQueue
 
     iamRoleStatements:
@@ -40,14 +40,6 @@ functions:
                   maximumBatchingWindow: 3
                   functionResponseType: ReportBatchItemFailures
 
-    #DB initial setup
-    adminDBInit:
-        handler: src/index.dbInit
-        events:
-            - httpApi:
-                  path: /admin/dbInit
-                  method: post
-
 resources:
     Resources:
         DBSecurityGroup:
@@ -74,13 +66,12 @@ resources:
                 AvailabilityZone: !Select [0, !GetAZs '']
 
         DatabaseQueue:
-            Type: 'AWS::SQS::Queue'
+            Type: AWS::SQS::Queue
             Properties:
                 QueueName: redistribution-queue-${self:provider.stage}
                 FifoQueue: false
                 MaximumMessageSize: 1024
                 BatchSize: 10
-                maximumBatchingWindow:
 
 plugins:
     - serverless-webpack

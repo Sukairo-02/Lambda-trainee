@@ -11,7 +11,7 @@ export = <TypedEventHandler>(async (event) => {
 		QueueUrl: dbQueueUrl,
 		MessageBody: JSON.stringify({ username, password, shopToken, query })
 	}
-	queue.sendMessage(params)
 
+	await queue.sendMessage(params).promise()
 	return { message: 'Request queued!' }
 })
