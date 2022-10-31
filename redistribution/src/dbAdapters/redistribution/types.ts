@@ -4,13 +4,13 @@ export type Shop = {
 	callsMax: number
 }
 
-export type ShopUser = {
+export type ShopCustomer = {
 	shopToken: string
 	username: string
 	query: string
 }
 
-export type User = {
+export type Customer = {
 	username: string
 	password: string
 }
