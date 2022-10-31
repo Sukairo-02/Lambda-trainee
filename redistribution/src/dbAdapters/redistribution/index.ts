@@ -1,80 +1,31 @@
 import envGet from '@util/envGet'
 import * as pg from 'pg'
-import type { Shop, ShopCustomer, Customer } from './types'
+import Customer from './tables/Customer'
+import Shop from './tables/Shop'
+import ShopCustomer from './tables/ShopCustomer'
 
 class RedistributionDatabase {
-	private client: pg.Client | undefined
+	private config = envGet('dbHost', 'dbPort', 'dbName', 'dbUsername', 'dbPassword')
 
-	public Customer(dbClient: pg.Client = this.client!) {
-		return {
-			async insert(data: Customer[]) {
-				await dbClient.connect()
-				await dbClient.query('')
-				await dbClient.end()
-			},
+	private client: pg.Client = new pg.Client({
+		host: this.config.dbHost,
+		port: +this.config.dbPort,
+		database: this.config.dbName,
+		user: this.config.dbUsername,
+		password: this.config.dbPassword
+	})
 
-			async update(data: Customer[]) {
-				await dbClient.connect()
-				await dbClient.query('')
-				await dbClient.end()
-			},
+	public Customer = Customer(this.client!)
 
-			async delete(key: string[]) {
-				await dbClient.connect()
-				await dbClient.query('')
-				await dbClient.end()
-			}
-		}
-	}
+	public Shop = Shop(this.client)
 
-	public Shop(dbClient: pg.Client = this.client!) {
-		return {
-			async insert(data: Shop[]) {
-				await dbClient.connect()
-				await dbClient.query('')
-				await dbClient.end()
-			},
-
-			async update(data: Shop[]) {
-				await dbClient.connect()
-				await dbClient.query('')
-				await dbClient.end()
-			},
-
-			async delete(key: string[]) {
-				await dbClient.connect()
-				await dbClient.query('')
-				await dbClient.end()
-			}
-		}
-	}
-
-	public Shopcustomer(dbClient: pg.Client = this.client!) {
-		return {
-			async insert(data: ShopCustomer[]) {
-				await dbClient.connect()
-				await dbClient.query('')
-				await dbClient.end()
-			},
-
-			async update(data: ShopCustomer[]) {
-				await dbClient.connect()
-				await dbClient.query('')
-				await dbClient.end()
-			},
-
-			async delete(data: ShopCustomer[]) {
-				await dbClient.connect()
-				await dbClient.query('')
-				await dbClient.end()
-			}
-		}
-	}
+	public ShopCustomer = ShopCustomer(this.client)
 
 	private async init() {
 		await this.client!.connect()
 
-		await this.client!.query(`
+		if (!(await this.isCompatible())) {
+			await this.client!.query(`
 			CREATE TABLE shop (
 				token VARCHAR(255) NOT NULL PRIMARY KEY,
 				calls INT NOT NULL DEFAULT 0,
@@ -140,6 +91,7 @@ class RedistributionDatabase {
 			ADD CONSTRAINT shop_calls_increment_or_halt
 			CHECK(check_shop_calls(token, login, query));
 			`)
+		}
 
 		await this.client!.end()
 	}
@@ -149,26 +101,21 @@ class RedistributionDatabase {
 	}
 
 	constructor() {
-		const { dbHost, dbPort, dbName, dbUsername, dbPassword } = envGet(
-			'dbHost',
-			'dbPort',
-			'dbName',
-			'dbUsername',
-			'dbPassword'
-		)
-
-		this.client = new pg.Client({
-			host: dbHost,
-			port: +dbPort,
-			database: dbName,
-			user: dbUsername,
-			password: dbPassword
-		})
-
-		/*
-        Check if tables exist
-        init() if don't
-         */
+		// Need client immediately, constructor emptied
+		// const { dbHost, dbPort, dbName, dbUsername, dbPassword } = envGet(
+		// 	'dbHost',
+		// 	'dbPort',
+		// 	'dbName',
+		// 	'dbUsername',
+		// 	'dbPassword'
+		// )
+		// this.client = new pg.Client({
+		// 	host: dbHost,
+		// 	port: +dbPort,
+		// 	database: dbName,
+		// 	user: dbUsername,
+		// 	password: dbPassword
+		// })
 	}
 }
 

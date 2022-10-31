@@ -54,7 +54,7 @@ resources:
             Properties:
                 DBInstanceClass: db.t2.micro
                 Engine: postgres
-                EngineVersion: 13.7
+                EngineVersion: 11.5
                 AllocatedStorage: 20
                 DBInstanceIdentifier: ${self:service}-${self:provider.stage}-instance
                 DBName: redistribution_db
