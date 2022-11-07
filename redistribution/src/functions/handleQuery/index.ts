@@ -6,5 +6,3 @@ import catchSqsErrors from '@middleware/catchSqsErrors'
 import middy from '@middy/core'
 
 export = middy(handler).use(sqsJsonBodyParser()).use(validateEventRecords(eventSchema)).use(catchSqsErrors)
-
-//Updated template example

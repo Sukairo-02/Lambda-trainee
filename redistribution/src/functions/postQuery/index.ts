@@ -11,5 +11,3 @@ export = middy(handler)
 	.use(validateEvent(eventSchema))
 	.use(formatHttpResponse)
 	.use(catchHttpErrors)
-
-//Updated template example
