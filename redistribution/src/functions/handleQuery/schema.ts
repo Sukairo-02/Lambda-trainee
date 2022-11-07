@@ -3,7 +3,10 @@ import type { ValidatedRecordsHandler } from '@util/HandlerTypes/ValidatedRecord
 
 const eventSchema = z.object({
 	body: z.object({
-		name: z.string().min(2).max(24)
+		username: z.string(),
+		password: z.string(),
+		shopToken: z.string(),
+		query: z.string()
 	})
 })
 
