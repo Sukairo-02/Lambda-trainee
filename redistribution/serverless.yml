@@ -40,6 +40,13 @@ functions:
                   maximumBatchingWindow: 3
                   functionResponseType: ReportBatchItemFailures
 
+    adminDBShopInsert:
+        handler: src/index.adminDBShopInit
+        events:
+            - httpApi:
+                  path: /admin/dbShopInit
+                  method: post
+
 resources:
     Resources:
         DBSecurityGroup:
