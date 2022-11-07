@@ -49,7 +49,7 @@ export = (dbClient: Client) => {
 
 			await dbClient.query(
 				`
-				DELETE FROM shop
+				DELETE FROM shop_customer
 				WHERE ${
 					shopTokens?.length
 						? `shop_token IN (${shopTokens.reduce(
