@@ -6,11 +6,11 @@ export type Shop = {
 
 export type ShopCustomer = {
 	shopToken: string
-	username: string
+	customerLogin: string
 	query: string
 }
 
 export type Customer = {
-	username: string
+	login: string
 	password: string
 }

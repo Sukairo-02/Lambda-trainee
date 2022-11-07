@@ -21,46 +21,38 @@ class RedistributionDatabase {
 
 	public ShopCustomer = ShopCustomer(this.client)
 
-	private async init() {
-		await this.client!.connect()
-
-		if (!(await this.isCompatible())) {
-			await this.client!.query(`
-			CREATE TABLE shop (
-				token VARCHAR(255) NOT NULL PRIMARY KEY,
+	public async init() {
+		await this.client.connect()
+		await this.client.query(`
+			CREATE TABLE IF NOT EXISTS shop (
+				token TEXT NOT NULL PRIMARY KEY,
 				calls INT NOT NULL DEFAULT 0,
 				calls_max INT NOT NULL DEFAULT 10
 			);
 
-			CREATE TABLE customer (
-				login VARCHAR(255) NOT NULL PRIMARY KEY,
-				password VARCHAR(255) NOT NULL
+			CREATE TABLE IF NOT EXISTS customer (
+				login TEXT NOT NULL PRIMARY KEY,
+				password TEXT NOT NULL
 			);
 
-			CREATE TABLE shop_customer ( 
-				shop_token VARCHAR(255) NOT NULL, 
-				customer_login VARCHAR(255) NOT NULL, 
-				query VARCHAR(255), 
+			CREATE TABLE IF NOT EXISTS shop_customer ( 
+				shop_token TEXT NOT NULL, 
+				customer_login TEXT NOT NULL, 
+				query TEXT, 
 				CONSTRAINT shop_customer_fk_customer FOREIGN KEY (customer_login) 
 				REFERENCES customer (login) ON DELETE CASCADE ON UPDATE CASCADE, 
 				CONSTRAINT shop_customer_fk_shop FOREIGN KEY (shop_token) 
 				REFERENCES shop (token) ON DELETE CASCADE ON UPDATE CASCADE
 			);
 
-			CREATE TABLE shop_customer_rejected (
-				shop_token VARCHAR(255) NOT NULL, 
-				customer_login VARCHAR(255) NOT NULL, 
-				query VARCHAR(255), 
-				CONSTRAINT shop_customer_fk_customer FOREIGN KEY (customer_login) 
-				REFERENCES customer (login) ON DELETE CASCADE ON UPDATE CASCADE, 
-				CONSTRAINT shop_customer_fk_shop FOREIGN KEY (shop_token) 
-				REFERENCES shop (token) ON DELETE CASCADE ON UPDATE CASCADE
+			CREATE TABLE IF NOT EXISTS shop_limit ( 
+				shop_token TEXT NOT NULL PRIMARY KEY REFERENCES shop (token)
 			);
 			
 			CREATE OR REPLACE FUNCTION check_shop_calls(var_token shop_customer.shop_token%TYPE, var_login shop_customer.customer_login%TYPE, var_query shop_customer.query%TYPE )
 			RETURNS boolean
 			LANGUAGE plpgsql
-			AS $$
+			AS $check_shop_calls$
 			DECLARE
 				var_calls_max integer;
 				var_calls integer;
@@ -79,25 +71,37 @@ class RedistributionDatabase {
 					END;
 				ELSE
 					BEGIN
-						INSERT INTO shop_customer_rejected
-						VALUES (var_token, var_login, var_query);
+						INSERT INTO shop_limit
+						VALUES (var_token)
+						ON CONFLICT DO NOTHING;
 						RETURN false;
 					END;
 				END IF;
 			END;
-			$$;
+			$check_shop_calls$;
 
 			ALTER TABLE shop_customer 
 			ADD CONSTRAINT shop_calls_increment_or_halt
 			CHECK(check_shop_calls(token, login, query));
+
+			CREATE OR REPLACE FUNCTION remove_limit_warning()
+			RETURNS trigger
+			LANGUAGE plpgsql
+			AS $remove_limit_warning$
+				IF OLD.calls >= OLD.calls_max AND NEW.calls_max > OLD.calls_max THEN
+				BEGIN
+					DELETE FROM shop_limit
+					WHERE shop_token = NEW.token
+				END;
+				END IF;
+				RETURN NEW;
+			$remove_limit_warning$;
+			
+			CREATE OR REPLACE TRIGGER remove_limit_warning BEFORE UPDATE ON shop
+			FOR EACH ROW EXECUTE PROCEDURE remove_limit_warning();
 			`)
-		}
 
-		await this.client!.end()
-	}
-
-	private async isCompatible(): Promise<Boolean> {
-		return false
+		await this.client.end()
 	}
 
 	constructor() {
