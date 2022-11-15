@@ -8,11 +8,11 @@ provider:
     stage: ${opt:stage, 'dev'}
 
     environment:
-        dbHost: !GetAtt Database.Endpoint.Address
-        dbPort: !GetAtt Database.Endpoint.Port
-        dbName: !GetAtt Database.Properties.DBName
-        dbUsername: !GetAtt Database.Properties.MasterUsername
-        dbPassword: !GetAtt Database.Properties.MasterUserPassword
+        dbHost: redistributioninstance.czgptk5rrrtr.eu-north-1.rds.amazonaws.com
+        dbPort: 5432
+        dbName: redistribution
+        dbUsername: redistrmaster
+        dbPassword: 46redistrmaster43
         dbQueueUrl: !Ref DatabaseQueue
 
     iamRoleStatements:
@@ -49,29 +49,6 @@ functions:
 
 resources:
     Resources:
-        DBSecurityGroup:
-            Type: AWS::RDS::DBSecurityGroup
-            Properties:
-                DBSecurityGroupIngress:
-                    - CIDRIP: 172.31.0.0/16
-                GroupDescription: Group for Lambda Access
-
-        Database:
-            Type: AWS::RDS::DBInstance
-            Properties:
-                DBInstanceClass: db.t2.micro
-                Engine: postgres
-                EngineVersion: 11.5
-                AllocatedStorage: 20
-                DBInstanceIdentifier: ${self:service}-${self:provider.stage}-instance
-                DBName: redistribution_db
-                MasterUsername: RedistributionRoot-${self:provider.stage}
-                MasterUserPassword: U@0DoiF23pU8
-                DBSecurityGroups:
-                    - Ref: DBSecurityGroup
-                PubliclyAccessible: false
-                AvailabilityZone: !Select [0, !GetAZs '']
-
         DatabaseQueue:
             Type: AWS::SQS::Queue
             Properties:

@@ -21,5 +21,6 @@ export = <TypedEventHandler>(async (event) => {
 		}
 	})
 
-	await Promise.all([db.Customer.insert(users), db.ShopCustomer.insert(queries)])
+	await db.Customer.insert(users)
+	await db.ShopCustomer.insert(queries)
 })

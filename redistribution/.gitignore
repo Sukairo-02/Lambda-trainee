@@ -7,4 +7,4 @@ jspm_packages
 .webpack
 
 # Unnecessary project files
-schema.drawio.png
+dist
