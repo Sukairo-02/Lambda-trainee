@@ -1,4 +1,5 @@
 const path = require('path')
+const webpack = require('webpack')
 const slsw = require('serverless-webpack')
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin')
@@ -31,5 +32,5 @@ module.exports = {
 			}
 		]
 	},
-	plugins: [new ForkTsCheckerWebpackPlugin()]
+	plugins: [new ForkTsCheckerWebpackPlugin(), new webpack.IgnorePlugin({ resourceRegExp: /^pg-native$/ })]
 }

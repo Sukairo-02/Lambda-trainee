@@ -1,10 +1,8 @@
 import { TypedEventHandler } from './schema'
-import db from '@dbAdapters/Redistribution'
+import dbPool from '@dbAdapters/Redistribution'
 
 export = <TypedEventHandler>(async (event) => {
 	if (!event.Records) return
-
-	await db.init()
 
 	const users = event.Records.map((e) => {
 		return {
@@ -21,6 +19,15 @@ export = <TypedEventHandler>(async (event) => {
 		}
 	})
 
-	await db.Customer.insert(users)
-	await db.ShopCustomer.insert(queries)
+	const db = await dbPool.init()
+	let error: any
+	try {
+		await db.Customer.insert(users)
+		await db.ShopCustomer.insert(queries)
+	} catch (e) {
+		error = e
+	} finally {
+		await db.end()
+		if (error) throw error
+	}
 })

@@ -4,13 +4,13 @@ process.env.dbPassword = 'RedistributionClientSomePassword'
 //Replace prod db info with local instance
 
 import 'module-alias/register'
-import db from '@dbAdapters/Redistribution'
+import dbPool from '@dbAdapters/Redistribution'
 
 //Sanbox for testing out adapter before deployment
 const start = async () => {
-	try {
-		await db.init()
+	const db = await dbPool.init()
 
+	try {
 		// await db.Shop.insert([
 		// 	{
 		// 		token: 'token1',
@@ -125,12 +125,12 @@ const start = async () => {
 
 		// await db.Shop.update('token3', { calls: 0 })
 		// await db.Shop.update('token4', { callsMax: 6 })
-		// await db.Shop.update('token5', { token: 'token5N', calls: 6, callsMax: 8 })
+		// await db.Shop.update('token5N', { token: 'token5', calls: 6, callsMax: 8 })
 
-		// await db.Customer.update('cus1', { login: 'cus1N' })
+		// await db.Customer.update('cus1N', { login: 'cus1' })
 		// await db.Customer.update('cus2', { password: 'cus2pN' })
-		// await db.Customer.update('cus3', { login: 'cus3N', password: 'cus3pN' })
-		// await db.Shop.delete(['token2', 'token4', 'nottoken'])
+		// await db.Customer.update('cus3N', { login: 'cus3', password: 'cus3pN' })
+
 		// console.table(
 		// 	await db.ShopCustomer.get([
 		// 		{ shopToken: 'token1' },
@@ -144,8 +144,31 @@ const start = async () => {
 		// )
 		// await db.ShopCustomer.update(3, 't1c1N')
 		// console.table(await db.ShopCustomer.get())
+
+		await db.Customer.insert([
+			{
+				login: 'cus5',
+				password: 'cus5pN'
+			},
+			{
+				login: 'cus6',
+				password: 'cus6p'
+			},
+			{
+				login: 'cus3',
+				password: 'cus3p'
+			},
+			{
+				login: 'cus4',
+				password: 'cus4pN'
+			}
+		])
+
+		console.table(await db.Customer.get())
 	} catch (e) {
 		console.error(e)
+	} finally {
+		await db.end()
 	}
 }
 

@@ -21,7 +21,17 @@ provider:
               - sqs:ReceiveMessage
               - sqs:DeleteMessage
               - sqs:GetQueueAttributes
+              - sqs:SendMessage
           Resource: !GetAtt DatabaseQueue.Arn
+        - Effect: Allow
+          Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - ec2:CreateNetworkInterface
+              - ec2:DescribeNetworkInterface
+              - ec2:DeleteNetworkInterface
+          Resource: '*'
 
 functions:
     postQuery:
@@ -36,15 +46,22 @@ functions:
         events:
             - sqs:
                   arn: !GetAtt DatabaseQueue.Arn
-                  batchSize: 10
-                  maximumBatchingWindow: 3
+                  batchSize: 50
+                  maximumBatchingWindow: 1
                   functionResponseType: ReportBatchItemFailures
 
-    adminDBShopInsert:
+    adminDBShopInit:
         handler: src/index.adminDBShopInit
         events:
             - httpApi:
                   path: /admin/dbShopInit
+                  method: post
+
+    adminCheckDB:
+        handler: src/index.adminCheckDB
+        events:
+            - httpApi:
+                  path: /admin/checkDB
                   method: post
 
 resources:
@@ -53,9 +70,7 @@ resources:
             Type: AWS::SQS::Queue
             Properties:
                 QueueName: redistribution-queue-${self:provider.stage}
-                FifoQueue: false
                 MaximumMessageSize: 1024
-                BatchSize: 10
 
 plugins:
     - serverless-webpack

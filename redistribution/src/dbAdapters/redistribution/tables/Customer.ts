@@ -1,95 +1,71 @@
 import format from 'pg-format'
-
-import type { Pool } from 'pg'
+import escapeLiteral from '@util/escapeLiteral'
+import type { PoolClient } from 'pg'
 import type { Customer } from '@dbAdapters/Redistribution/types'
 
-export = (conPool: Pool) => {
+export = (dbClient: PoolClient) => {
 	return {
 		async get(data?: Partial<Customer>[]) {
-			const dbClient = await conPool.connect()
+			let dataPrepared: undefined | string
+			if (data) {
+				dataPrepared = data
+					.map(
+						(e) =>
+							`(${e.login ? `login = ${escapeLiteral(e.login)}` : ''}${
+								e.login && e.password ? ' AND ' : ''
+							}${e.password ? `password = ${escapeLiteral(e.password)}` : ''})`
+					)
+					.filter((e) => e !== '()')
+					.join(' OR ')
+			}
 
-			try {
-				let dataPrepared: undefined | string
-				if (data) {
-					dataPrepared = data
-						.map(
-							(e) =>
-								`(${e.login ? `login = ${dbClient.escapeLiteral(e.login)}` : ''}${
-									e.login && e.password ? ' AND ' : ''
-								}${e.password ? `password = ${dbClient.escapeLiteral(e.password)}` : ''})`
-						)
-						.filter((e) => e !== '()')
-						.join(' OR ')
-				}
-
-				const query = `
+			const query = `
 				SELECT * FROM customer
 				${dataPrepared ? `WHERE (${dataPrepared})` : ''}`
 
-				const res = (await dbClient.query(query)).rows
+			const res = (await dbClient.query(query)).rows
 
-				await dbClient.release()
-				return res as Customer[]
-			} catch (e) {
-				await dbClient.release()
-				throw e
-			}
+			return res as Customer[]
 		},
 
 		async insert(data: Customer[]) {
 			if (!data.length) return
-			const dbClient = await conPool.connect()
 
-			try {
-				const query = format(
-					`
+			const query = format(
+				`
 				INSERT INTO customer (login, password)
 				VALUES %L
 				ON CONFLICT DO NOTHING`,
-					data.map((e) => [e.login, e.password])
-				)
+				data.map((e) => [e.login, e.password])
+			)
 
-				await dbClient.query(query)
-				await dbClient.release()
-			} catch (e) {
-				await dbClient.release()
-				throw e
-			}
+			await dbClient.query(query)
 		},
 
 		async update(key: string, data: Partial<Customer>) {
-			const dbClient = await conPool.connect()
-
-			try {
-				const query = `
+			const query = `
 				UPDATE customer
-				SET ${data.login ? `login = ${dbClient.escapeLiteral(data.login)}` : ''}${data.login && data.password ? ', ' : ''}
-					${data.password ? `password = ${dbClient.escapeLiteral(data.password)}` : ''}
-				WHERE login = ${dbClient.escapeLiteral(key)}`
+				SET ${data.login ? `login = ${escapeLiteral(data.login)}` : ''}${data.login && data.password ? ', ' : ''}
+					${data.password ? `password = ${escapeLiteral(data.password)}` : ''}
+				WHERE login = ${escapeLiteral(key)}
+				${
+					data.login
+						? `AND NOT EXISTS (
+					SELECT 1 FROM customer WHERE login = ${escapeLiteral(data.login)})`
+						: ''
+				}`
 
-				await dbClient.query(query)
-				await dbClient.release()
-			} catch (e) {
-				await dbClient.release()
-				throw e
-			}
+			await dbClient.query(query)
 		},
 
 		async delete(keys: string[]) {
 			if (!keys.length) return
-			const dbClient = await conPool.connect()
 
-			try {
-				const query = `
+			const query = `
 				DELETE FROM customer
 				WHERE login = ANY($1::text[])`
 
-				await dbClient.query(query, [keys])
-				await dbClient.release()
-			} catch (e) {
-				await dbClient.release()
-				throw e
-			}
+			await dbClient.query(query, [keys])
 		}
 	}
 }

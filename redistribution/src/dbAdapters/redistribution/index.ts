@@ -1,42 +1,51 @@
 import envGet from '@util/envGet'
-import * as pg from 'pg'
 import Customer from './tables/Customer'
 import Shop from './tables/Shop'
 import ShopCustomer from './tables/ShopCustomer'
+import { Pool, PoolClient } from 'pg'
 
 class RedistributionDatabase {
 	private config = envGet('dbHost', 'dbPort', 'dbName', 'dbUsername', 'dbPassword')
 
-	private conPool = new pg.Pool({
+	private conPool = new Pool({
 		host: this.config.dbHost,
 		port: +this.config.dbPort,
 		database: this.config.dbName,
 		user: this.config.dbUsername,
-		password: this.config.dbPassword
+		password: this.config.dbPassword,
+		connectionTimeoutMillis: 4000,
+		query_timeout: 4000
 	})
 
-	public Customer = Customer(this.conPool)
+	private tables(dbClient: PoolClient) {
+		return {
+			Customer: Customer(dbClient),
 
-	public Shop = Shop(this.conPool)
+			Shop: Shop(dbClient),
 
-	public ShopCustomer = ShopCustomer(this.conPool)
+			ShopCustomer: ShopCustomer(dbClient),
+
+			async end() {
+				await dbClient.release()
+			}
+		}
+	}
 
 	public async init() {
-		const dbClient = await this.conPool.connect()
+		const poolClient = await this.conPool.connect()
 
-		try {
-			if (
-				!(
-					await dbClient.query(`
+		if (
+			!(
+				await poolClient.query(`
 				SELECT EXISTS (
 				SELECT 1
 				FROM   information_schema.tables 
 				WHERE  table_schema = 'public'
 				AND    table_name = 'shop_customer'
 				)`)
-				).rows[0].exists
-			)
-				await dbClient.query(`
+			).rows[0].exists
+		) {
+			await poolClient.query(`
 				CREATE TABLE IF NOT EXISTS shop (
 					token TEXT NOT NULL PRIMARY KEY,
 					calls INT NOT NULL DEFAULT 0,
@@ -118,12 +127,13 @@ class RedistributionDatabase {
 				CREATE TRIGGER remove_limit_warning AFTER UPDATE ON shop
 				FOR EACH ROW EXECUTE PROCEDURE remove_limit_warning();
 				`)
-
-			await dbClient.release()
-		} catch (e) {
-			await dbClient.release()
-			throw e
 		}
+
+		return this.tables(poolClient)
+	}
+
+	public async end() {
+		await this.conPool.end()
 	}
 
 	constructor() {}

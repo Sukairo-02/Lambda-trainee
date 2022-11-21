@@ -1,105 +1,79 @@
 import format from 'pg-format'
-
-import type { Pool } from 'pg'
+import escapeLiteral from '@util/escapeLiteral'
+import type { PoolClient } from 'pg'
 import type { Shop } from '@dbAdapters/Redistribution/types'
 
-export = (conPool: Pool) => {
+export = (dbClient: PoolClient) => {
 	return {
 		async get(data?: Partial<Shop>[]) {
-			const dbClient = await conPool.connect()
+			let dataPrepared: undefined | string
+			if (data) {
+				dataPrepared = data
+					.map((e) => {
+						const isCalls = Number.isInteger(e.calls) //separate validation for numbers to avoid 0 == false
+						const isCallsMax = Number.isInteger(e.callsMax)
+						return `(${e.token ? `token = ${escapeLiteral(e.token!)}` : ''}${
+							e.token && (isCalls || isCallsMax) ? ' AND ' : ''
+						}${isCalls ? `calls = ${e.calls}` : ''}${isCalls && isCallsMax ? ' AND ' : ''}${
+							isCallsMax ? `calls_max = ${e.callsMax}` : ''
+						})`
+					})
+					.filter((e) => e !== '()')
+					.join(' OR ')
+			}
 
-			try {
-				let dataPrepared: undefined | string
-				if (data) {
-					dataPrepared = data
-						.map((e) => {
-							const isCalls = Number.isInteger(e.calls) //separate validation for numbers to avoid 0 == false
-							const isCallsMax = Number.isInteger(e.callsMax)
-							return `(${e.token ? `token = ${dbClient.escapeLiteral(e.token!)}` : ''}${
-								e.token && (isCalls || isCallsMax) ? ' AND ' : ''
-							}${isCalls ? `calls = ${e.calls}` : ''}${isCalls && isCallsMax ? ' AND ' : ''}${
-								isCallsMax ? `calls_max = ${e.callsMax}` : ''
-							})`
-						})
-						.filter((e) => e !== '()')
-						.join(' OR ')
-				}
-
-				const query = `
+			const query = `
 				SELECT * FROM shop
 				${dataPrepared ? `WHERE (${dataPrepared})` : ''}`
 
-				const res = (await dbClient.query(query)).rows
+			const res = (await dbClient.query(query)).rows
 
-				await dbClient.release()
-				return res as Shop[]
-			} catch (e) {
-				await dbClient.release()
-				throw e
-			}
+			return res as Shop[]
 		},
 
 		async insert(data: Shop[]) {
 			if (!data.length) return
-			const dbClient = await conPool.connect()
 
-			try {
-				const query = format(
-					`
+			const query = format(
+				`
 				INSERT INTO shop (token, calls, calls_max)
 				VALUES %L
 				ON CONFLICT DO NOTHING`,
-					data.map((e) => [e.token, e.calls, e.callsMax])
-				)
+				data.map((e) => [e.token, e.calls, e.callsMax])
+			)
 
-				await dbClient.query(query)
-				await dbClient.release()
-			} catch (e) {
-				await dbClient.release()
-				throw e
-			}
+			await dbClient.query(query)
 		},
 
 		async update(key: string, data: Partial<Shop>) {
-			const dbClient = await conPool.connect()
+			const isCalls = Number.isInteger(data.calls)
+			const isCallsMax = Number.isInteger(data.callsMax)
 
-			try {
-				console.log('Data: ', data)
-				const isCalls = Number.isInteger(data.calls)
-				const isCallsMax = Number.isInteger(data.callsMax)
-
-				const query = `
+			const query = `
 				UPDATE shop
-				SET ${data.token ? `token = ${dbClient.escapeLiteral(data.token)}` : ''}${
-					data.token && (isCalls || isCallsMax) ? ', ' : ''
-				}
+				SET ${data.token ? `token = ${escapeLiteral(data.token)}` : ''}${data.token && (isCalls || isCallsMax) ? ', ' : ''}
 					${isCalls ? `calls = ${data.calls}` : ''}${isCalls && isCallsMax ? ', ' : ''}
 					${isCallsMax ? `calls_max = ${data.callsMax}` : ''}
-				WHERE token = ${dbClient.escapeLiteral(key)}`
+				WHERE token = ${escapeLiteral(key)}
+				${
+					data.token
+						? `AND NOT EXISTS (
+					SELECT 1 FROM shop WHERE token = ${escapeLiteral(data.token)})`
+						: ''
+				}
+				`
 
-				await dbClient.query(query)
-				await dbClient.release()
-			} catch (e) {
-				await dbClient.release()
-				throw e
-			}
+			await dbClient.query(query)
 		},
 
 		async delete(keys: string[]) {
 			if (!keys.length) return
-			const dbClient = await conPool.connect()
 
-			try {
-				const query = `
+			const query = `
 				DELETE FROM shop
 				WHERE token = ANY($1::text[])`
 
-				await dbClient.query(query, [keys])
-				await dbClient.release()
-			} catch (e) {
-				await dbClient.release()
-				throw e
-			}
+			await dbClient.query(query, [keys])
 		}
 	}
 }
