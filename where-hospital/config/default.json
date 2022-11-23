@@ -1,0 +1,14 @@
+{
+	"Server": {
+		"port": 3000
+	},
+	"Database": {
+		"HospitalLocation": {
+			"host": "localhost",
+			"port": 5432,
+			"database": "HospitalLocation",
+			"user": "hospitallocmaster",
+			"password": "2345wesrdgv"
+		}
+	}
+}
