@@ -29,5 +29,5 @@ module.exports = {
 			}
 		]
 	},
-	plugins: [new ForkTsCheckerWebpackPlugin()]
+	plugins: [new ForkTsCheckerWebpackPlugin(), new webpack.IgnorePlugin({ resourceRegExp: /^pg-native$/ })]
 }
