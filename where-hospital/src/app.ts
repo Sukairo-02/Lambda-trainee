@@ -5,9 +5,9 @@ import ErrorHandler from '@Util/ErrorHandler'
 const app = express()
 app.use(express.json())
 
-const port = config.get<number>('Server.port')
-
 app.use(ErrorHandler)
+
+const port = process.env.PORT || config.get<number>('Server.port')
 
 async function start() {
 	try {
