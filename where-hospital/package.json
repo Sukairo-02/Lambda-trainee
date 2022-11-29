@@ -5,7 +5,9 @@
 	"main": "src/app.ts",
 	"scripts": {
 		"test": "nodemon src/app.ts",
-		"pack": "webpack && xcopy config pack/config /t /e"
+		"pack": "webpack && xcopy config pack/config /t /e",
+		"generate-sql": "rimraf db-generated && drizzle-kit generate",
+		"parse-database": "ts-node src/parseData.ts"
 	},
 	"repository": {
 		"type": "git",
@@ -31,8 +33,11 @@
 		"@types/config": "^3.3.0",
 		"@types/express": "^4.17.14",
 		"@types/pg": "^8.6.5",
+		"csvtojson": "^2.0.10",
+		"drizzle-kit": "^0.12.18",
 		"fork-ts-checker-webpack-plugin": "^7.2.13",
 		"nodemon": "^2.0.20",
+		"rimraf": "^3.0.2",
 		"ts-node": "^10.9.1",
 		"tsconfig-paths": "^4.1.0",
 		"tsconfig-paths-webpack-plugin": "^4.0.0",

@@ -1,0 +1,5 @@
+{
+	"dialect": "pg",
+	"out": "./db-generated",
+	"schema": "./src/Database/HospitalLocation/Schema/index.ts"
+}
