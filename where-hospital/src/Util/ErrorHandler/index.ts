@@ -1,7 +1,7 @@
 import { isBoom, Boom } from '@hapi/boom'
 import type { ErrorRequestHandler } from 'express'
 
-export = <ErrorRequestHandler>((err, req, res, next) => {
+export = <ErrorRequestHandler>((err, req, res) => {
 	if (isBoom(err)) {
 		return res.status((<Boom>err).output.statusCode).json({ message: (<Boom>err).message })
 	}
