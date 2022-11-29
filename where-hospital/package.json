@@ -5,7 +5,7 @@
 	"main": "src/app.ts",
 	"scripts": {
 		"test": "nodemon src/app.ts",
-		"pack": "webpack && xcopy .\\config\\ .\\.pack\\config\\ /t /e",
+		"pack": "webpack",
 		"generate-sql": "rimraf db-generated && drizzle-kit generate",
 		"parse-database": "ts-node src/parseData.ts"
 	},
