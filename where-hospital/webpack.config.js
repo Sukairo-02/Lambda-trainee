@@ -1,10 +1,11 @@
 const path = require('path')
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin')
+const webpack = require('webpack')
 module.exports = {
 	mode: 'production',
 	devtool: 'cheap-source-map',
-	entry: './src/app.ts',
+	entry: path.join(__dirname, '/src/app.ts'),
 	target: 'node',
 	resolve: {
 		extensions: ['.cjs', '.mjs', '.js', '.ts'],
@@ -12,7 +13,7 @@ module.exports = {
 	},
 	output: {
 		libraryTarget: 'commonjs2',
-		path: path.resolve(__dirname, '/pack'),
+		path: path.join(__dirname, '.pack'),
 		filename: 'index.js'
 	},
 	module: {
@@ -21,7 +22,7 @@ module.exports = {
 				test: /\.ts$/,
 				exclude: /node_modules/,
 				loader: 'ts-loader',
-				exclude: [[path.resolve(__dirname, 'pack')]],
+				exclude: [[path.join(__dirname, '.pack')]],
 				options: {
 					transpileOnly: true,
 					experimentalFileCaching: true
