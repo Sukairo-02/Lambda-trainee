@@ -45,7 +45,7 @@ export const Suburb = pgTable(
 
 //Every field is a slug
 export const NearbySuburbs = pgTable(
-	'nearby_Suburbs',
+	'nearby_suburbs',
 	{
 		suburb: text('suburb').notNull(),
 		nearSuburb: text('near_suburb').notNull()

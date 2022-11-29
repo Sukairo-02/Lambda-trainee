@@ -7,8 +7,8 @@
 			"host": "localhost",
 			"port": 5432,
 			"database": "HospitalLocation",
-			"user": "RedistributionClient",
-			"password": "RedistributionClientSomePassword"
+			"user": "postgres",
+			"password": "This-Is-The-Certified-DB-Password"
 		}
 	}
 }

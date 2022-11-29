@@ -202,11 +202,31 @@ const start = async () => {
 	}
 
 	const fullPrepared = {
-		...(prepared as WithoutNullableKeys<typeof prepared>),
-		nearbySuburbs: nearbySuburbs.reduce((p, e) => {
-			if (!p.find((el) => el.suburb === e.suburb && el.nearSuburb === e.nearSuburb)) p.push(e)
+		cities: prepared.cities.reduce((p, e) => {
+			if (!p.find((el) => el.slug === e.slug || (el.name === e.name && el.state === e.state)))
+				p.push(e as WithoutNullableKeys<typeof e>)
 			return p
-		}, [] as typeof nearbySuburbs)
+		}, [] as WithoutNullableKeys<typeof prepared.cities>),
+		suburbs: prepared.suburbs.reduce((p, e) => {
+			if (!p.find((el) => el.slug === e.slug)) p.push(e as WithoutNullableKeys<typeof e>)
+			return p
+		}, [] as WithoutNullableKeys<typeof prepared.suburbs>),
+		clinics: prepared.clinics
+			.reduce((p, e) => {
+				if (!p.find((el) => el.slug === e.slug)) p.push(e as WithoutNullableKeys<typeof e>)
+				return p
+			}, [] as WithoutNullableKeys<typeof prepared.clinics>)
+			.filter((e) => prepared.suburbs.find((el) => e.suburbSlug === el.slug)),
+		nearbySuburbs: nearbySuburbs
+			.reduce((p, e) => {
+				if (!p.find((el) => el.suburb === e.suburb && el.nearSuburb === e.nearSuburb)) p.push(e)
+				return p
+			}, [] as typeof nearbySuburbs)
+			.filter(
+				(e) =>
+					prepared.suburbs.find((el) => e.nearSuburb === el.slug) &&
+					prepared.suburbs.find((el) => e.suburb === el.slug)
+			)
 	}
 
 	await db.insert(orm.City).values(...fullPrepared.cities)
