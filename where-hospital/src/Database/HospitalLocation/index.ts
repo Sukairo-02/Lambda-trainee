@@ -12,9 +12,11 @@ const pool = new Pool(dbConfig)
 const connector = new PgConnector(pool)
 
 export default {
-	Suburb,
-	City,
-	Clinic,
-	NearbySuburbs,
+	Tables: {
+		Suburb,
+		City,
+		Clinic,
+		NearbySuburbs
+	},
 	Connector: connector
 }
