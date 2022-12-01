@@ -2,7 +2,7 @@ import { PgConnector } from 'drizzle-orm-pg'
 import { Pool } from 'pg'
 import config from 'config'
 
-import { Suburb, City, Clinic, NearbySuburbs } from './Schema'
+import { Suburb, City, Clinic, NearbySuburb } from './Schema'
 
 import type { DatabaseConfig } from './types'
 
@@ -16,7 +16,7 @@ export default {
 		Suburb,
 		City,
 		Clinic,
-		NearbySuburbs
+		NearbySuburb
 	},
 	Connector: connector
 }

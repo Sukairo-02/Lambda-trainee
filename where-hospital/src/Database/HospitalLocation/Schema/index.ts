@@ -44,24 +44,24 @@ export const Suburb = pgTable(
 )
 
 //Every field is a slug
-export const NearbySuburbs = pgTable(
+export const NearbySuburb = pgTable(
 	'nearby_suburbs',
 	{
 		suburb: text('suburb').notNull(),
 		nearSuburb: text('near_suburb').notNull()
 	},
-	(NearbySuburbs) => ({
+	(NearbySuburb) => ({
 		nearbySuburbFkey: foreignKey(() => ({
-			columns: [NearbySuburbs.suburb],
+			columns: [NearbySuburb.suburb],
 			foreignColumns: [Suburb.slug]
 		})),
 
 		nearbyNearSuburbFkey: foreignKey(() => ({
-			columns: [NearbySuburbs.nearSuburb],
+			columns: [NearbySuburb.nearSuburb],
 			foreignColumns: [Suburb.slug]
 		})),
 
-		uniqueNearbyIdx: index('unique_nearby_idx', [NearbySuburbs.suburb, NearbySuburbs.nearSuburb])
+		uniqueNearbyIdx: index('unique_nearby_idx', [NearbySuburb.suburb, NearbySuburb.nearSuburb])
 	})
 )
 

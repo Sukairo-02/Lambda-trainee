@@ -118,9 +118,7 @@ const start = async () => {
 				name: e['Clinic Name'],
 				longName: e['Long Name Version'],
 				citySlug: cities.find((el) => el.city_name === e.City && el.state === e.State)?.city_slug, //replace city name with city slug
-				suburbSlug: suburbs.find(
-					(el) => el.suburb_name === e.Suburb && el.State === e.State && el.Postcode === e.Postcode
-				)?.['suburb-slug'], //replace city name with city slug
+				suburbSlug: e['link to clinic suburb page'],
 				postcode: e.Postcode,
 				state: e.State?.toLowerCase(),
 				fullAddress: e['Full Address'],
@@ -229,10 +227,17 @@ const start = async () => {
 			)
 	}
 
-	await db.insert(orm.City).values(...fullPrepared.cities)
-	await db.insert(orm.Suburb).values(...fullPrepared.suburbs)
-	await db.insert(orm.Clinic).values(...fullPrepared.clinics)
-	await db.insert(orm.NearbySuburbs).values(...fullPrepared.nearbySuburbs)
+	const { City, Clinic, Suburb, NearbySuburb } = orm.Tables
+
+	await db.delete(Clinic)
+	await db.delete(NearbySuburb)
+	await db.delete(Suburb)
+	await db.delete(City)
+
+	await db.insert(City).values(...fullPrepared.cities)
+	await db.insert(Suburb).values(...fullPrepared.suburbs)
+	await db.insert(Clinic).values(...fullPrepared.clinics)
+	await db.insert(NearbySuburb).values(...fullPrepared.nearbySuburbs)
 }
 
 start()
