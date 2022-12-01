@@ -12,7 +12,7 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "noUnusedLocals": false,
-    "noUnusedParameters": true,
+    "noUnusedParameters": false,
     "removeComments": true,
     "sourceMap": true,
     "outDir": "dist"
