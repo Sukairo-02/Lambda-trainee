@@ -1,3 +1,4 @@
+import * as Boom from '@hapi/boom'
 import { eq, like } from 'drizzle-orm/expressions'
 import Orm from '@Database/HospitalLocation'
 
@@ -22,7 +23,9 @@ class Info {
 			const cities = await db
 				.select(City)
 				.fields({ name: City.name, slug: City.slug, state: City.state })
-				.where(eq(City.state, req.params.stateSlug.toUpperCase()))
+				.where(eq(City.state, req.params.stateSlug.toLowerCase()))
+
+			if (!cities.length) throw Boom.notFound()
 			return res.json({ cities })
 		} catch (e) {
 			next(e)
@@ -33,6 +36,8 @@ class Info {
 		try {
 			const db = await Orm.Connector.connect()
 			const cities = await db.select(City).where(eq(City.slug, req.params.citySlug))
+
+			if (!cities.length) throw Boom.notFound()
 			return res.json({ city: cities[0] })
 		} catch (e) {
 			next(e)
@@ -45,6 +50,8 @@ class Info {
 			const suburbs = await db
 				.select(Suburb)
 				.fields({ name: Suburb.name, slug: Suburb.slug, city: Suburb.citySlug })
+
+			if (!suburbs.length) throw Boom.notFound()
 			return res.json({ suburbs })
 		} catch (e) {
 			next(e)
@@ -58,6 +65,8 @@ class Info {
 				.select(Suburb)
 				.fields({ name: Suburb.name, slug: Suburb.slug, city: Suburb.citySlug })
 				.where(like(Suburb.slug, `${req.params.stateSlug.toLowerCase()}/%`))
+
+			if (!suburbs.length) throw Boom.notFound()
 			return res.json({ suburbs })
 		} catch (e) {
 			next(e)
@@ -70,6 +79,8 @@ class Info {
 			const fullSlug = `${req.params.stateSlug.toLowerCase()}/${req.params.suburbSlug.toLowerCase()}`
 
 			const suburbs = await db.select(Suburb).where(eq(Suburb.slug, fullSlug))
+
+			if (!suburbs.length) throw Boom.notFound()
 			return res.json({ suburb: suburbs[0] })
 		} catch (e) {
 			next(e)
@@ -89,6 +100,8 @@ class Info {
 			)
 				.map((e) => ({ name: e.suburb.name, slug: e.suburb.slug, city: e.suburb.citySlug }))
 				.filter((e) => e.slug !== fullSlug)
+
+			if (!suburbs.length) throw Boom.notFound()
 			return res.json({ suburbs })
 		} catch (e) {
 			next(e)
@@ -109,6 +122,7 @@ class Info {
 				pms: Clinic.pms
 			})
 
+			if (!clinics.length) throw Boom.notFound()
 			return res.json({ clinics })
 		} catch (e) {
 			next(e)
@@ -119,6 +133,8 @@ class Info {
 		try {
 			const db = await Orm.Connector.connect()
 			const clinics = await db.select(Clinic).where(eq(Clinic.slug, req.params.clinicSlug))
+
+			if (!clinics.length) throw Boom.notFound()
 			return res.json({ clinic: clinics[0] })
 		} catch (e) {
 			next(e)
