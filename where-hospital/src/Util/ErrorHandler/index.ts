@@ -14,5 +14,5 @@ export = <ErrorRequestHandler>((err, req, res, next) => {
 			req.params
 		)}\nQuery:\n${util.inspect(req.query)}\n`
 	)
-	return res.status(500).json({ error: 'Unknown error occured... Try again later' })
+	return res.status(500).json({ message: 'Unknown error occured... Try again later' })
 })
