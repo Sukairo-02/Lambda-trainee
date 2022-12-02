@@ -11,6 +11,8 @@ class Info {
 		try {
 			const db = await Orm.Connector.connect()
 			const cities = await db.select(City).fields({ name: City.name, slug: City.slug, state: City.state })
+
+			if (!cities.length) throw Boom.notFound()
 			return res.json({ cities })
 		} catch (e) {
 			next(e)
