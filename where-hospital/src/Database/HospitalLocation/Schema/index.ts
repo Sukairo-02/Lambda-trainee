@@ -72,18 +72,20 @@ export const Clinic = pgTable(
 		slug: text('slug').primaryKey().notNull(),
 		name: text('name').notNull(),
 		longName: text('long_name').notNull(),
-		citySlug: text('city_name').notNull(),
+		citySlug: text('city_slug').notNull(),
 		suburbSlug: text('suburb_slug').notNull(),
 		postcode: text('postcode').notNull(),
 		state: text('state').notNull(), //duplicate data - leftover for precise location query optimistaion - allows to bypass triple join statement for /local/
+		cityName: text('city_name').notNull(), //another 2 instances of duplicate data - optimization purpose
+		suburbName: text('suburb_name'),
 		fullAddress: text('full_address').notNull(),
 		pms: text('pms').notNull(),
 		metaTitle: text('meta_title'),
 		metaDesc: text('meta_desc'),
 		typeform: text('typeform'),
 		website: text('website'),
-		email: text('email').notNull(),
-		phone: text('phone').notNull()
+		email: text('email'),
+		phone: text('phone')
 	},
 	(Clinic) => ({
 		clinicFkey: foreignKey(() => ({

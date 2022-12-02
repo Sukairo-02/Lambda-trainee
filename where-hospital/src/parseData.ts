@@ -121,6 +121,8 @@ const start = async () => {
 				suburbSlug: e['link to clinic suburb page'],
 				postcode: e.Postcode,
 				state: e.State?.toLowerCase(),
+				cityName: e.City,
+				suburbName: e.Suburb,
 				fullAddress: e['Full Address'],
 				pms: e.PMS,
 				metaTitle: e['Meta-title'],
@@ -139,10 +141,10 @@ const start = async () => {
 					e.suburbSlug &&
 					e.postcode &&
 					e.state &&
+					e.cityName &&
+					e.suburbName &&
 					e.fullAddress &&
-					e.pms &&
-					e.email &&
-					e.phone
+					e.pms
 			),
 		suburbs: suburbs
 			.map((e) => ({
