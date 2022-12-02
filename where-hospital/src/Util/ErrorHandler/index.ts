@@ -7,9 +7,10 @@ export = <ErrorRequestHandler>((err, req, res, next) => {
 		return res.status((<Boom>err).output.statusCode).json({ message: (<Boom>err).message })
 	}
 
-	console.log(typeof err, typeof req)
+	console.error('Error:\n')
+	console.error(err)
 	console.error(
-		`Error:\n${JSON.stringify(err)}\nPath:\n${req.path}\nBody:\n${util.inspect(req.body)}\nParams:\n${util.inspect(
+		`Path:\n${req.path}\nBody:\n${util.inspect(req.body)}\nParams:\n${util.inspect(
 			req.params
 		)}\nQuery:\n${util.inspect(req.query)}\n`
 	)
