@@ -178,6 +178,11 @@ const start = async () => {
 				suburb: e['suburb-slug'],
 				nearSuburb: e[`nearby${i}_link`]
 			})
+
+			nearbySuburbs.push({
+				suburb: e[`nearby${i}_link`],
+				nearSuburb: e['suburb-slug']
+			})
 		}
 	}
 
@@ -198,6 +203,11 @@ const start = async () => {
 			nearbySuburbs.push({
 				suburb: suburbSlug,
 				nearSuburb: e[`nearby${i}_link`]
+			})
+
+			nearbySuburbs.push({
+				suburb: e[`nearby${i}_link`],
+				nearSuburb: suburbSlug
 			})
 		}
 	}
