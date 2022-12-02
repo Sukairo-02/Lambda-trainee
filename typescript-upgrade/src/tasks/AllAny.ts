@@ -9,10 +9,14 @@ declare global {
 	interface Array<T> {
 		/**
 		 * Returns true if all elements match the given predicate.
+		 * @param callback Predicate
+		 * @param element Processed element of an array
 		 */
 		any: (callback: (element: T) => boolean) => boolean
 		/**
 		 * Returns true if one of the elements matches the given predicate.
+		 * @param callback Predicate
+		 * @param element Processed element of an array
 		 */
 		all: (callback: (element: T) => boolean) => boolean
 	}

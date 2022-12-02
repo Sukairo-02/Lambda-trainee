@@ -3,10 +3,12 @@ import type { DistinctQuestion } from 'inquirer'
 import inquirer from 'inquirer'
 import AllAny from '@tasks/AllAny'
 import GroupBy from '@tasks/GroupBy'
+import DistinctBy from '@tasks/DistinctBy'
 
 const subjectMap = {
 	'.all .any': AllAny,
-	'.GroupBy': GroupBy
+	'.GroupBy': GroupBy,
+	'.DistinctBy': DistinctBy
 }
 
 const start = async () => {
@@ -15,7 +17,7 @@ const start = async () => {
 			name: 'testOption',
 			type: 'list',
 			message: 'Which task to demonstrate?',
-			choices: ['.GroupBy', '.all .any']
+			choices: Object.entries(subjectMap).map((e) => e[0])
 		}
 		while (true) {
 			const pickData = (await inquirer.prompt(pickSubject)).testOption
