@@ -29,7 +29,7 @@ const readClincs = async () => {
 	return (<unknown>csv().fromFile(`${__dirname}/../rawData/clinics.csv`)) as Promise<
 		Partial<{
 			'Long Name Version': string
-			'Typeform registrtation link': string
+			'Typeform registration link': string
 			PMS: string
 			'Meta-title': string
 			'Meta-description': string
@@ -95,6 +95,8 @@ const readSuburbs = async () => {
 const start = async () => {
 	const db = await orm.Connector.connect()
 	const [cities, clinics, suburbs] = await Promise.all([readCities(), readClincs(), readSuburbs()])
+	console.log(clinics)
+
 	const prepared = {
 		cities: cities
 			.map((e) => ({
@@ -127,7 +129,7 @@ const start = async () => {
 				pms: e.PMS,
 				metaTitle: e['Meta-title'],
 				metaDesc: e['Meta-description'],
-				typeform: e['Typeform registrtation link'],
+				typeform: e['Typeform registration link'],
 				website: e.Website,
 				email: e.Email,
 				phone: e.Phone
