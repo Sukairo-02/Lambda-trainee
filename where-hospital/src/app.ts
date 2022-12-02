@@ -3,11 +3,13 @@ import config from 'config'
 import ErrorHandler from '@Util/ErrorHandler'
 
 import Info from '@Routes/Info'
+import Local from '@Routes/Local'
 
 const app = express()
 app.use(express.json())
 
 app.use('/info', Info)
+app.use('/local', Local)
 
 app.use(ErrorHandler)
 
