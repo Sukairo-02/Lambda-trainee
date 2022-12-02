@@ -5,7 +5,7 @@ const router = Router()
 
 router.get('/city', Info.City)
 router.get('/city/byState/:stateSlug', Info.CityByState)
-router.get('/city/:citySlug', () => Info.CitySlug)
+router.get('/city/:citySlug', Info.CitySlug)
 router.get('/suburb', Info.Suburb)
 router.get('/suburb/:stateSlug', Info.SuburbByState)
 router.get('/suburb/:stateSlug/:suburbSlug', Info.SuburbSlug)

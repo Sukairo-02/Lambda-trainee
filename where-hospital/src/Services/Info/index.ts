@@ -102,9 +102,10 @@ class Info {
 				slug: Clinic.slug,
 				name: Clinic.name,
 				longName: Clinic.longName,
-				state: Clinic.state,
-				city: Clinic.citySlug,
-				suburb: Clinic.suburbSlug,
+				citySlug: Clinic.citySlug,
+				suburbSlug: Clinic.suburbSlug,
+				city: Clinic.cityName,
+				suburb: Clinic.suburbName,
 				pms: Clinic.pms
 			})
 

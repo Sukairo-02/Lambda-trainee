@@ -95,12 +95,11 @@ const readSuburbs = async () => {
 const start = async () => {
 	const db = await orm.Connector.connect()
 	const [cities, clinics, suburbs] = await Promise.all([readCities(), readClincs(), readSuburbs()])
-	console.log(clinics)
 
 	const prepared = {
 		cities: cities
 			.map((e) => ({
-				slug: e.city_slug,
+				slug: e.city_slug?.split('/')[1],
 				name: e.city_name,
 				state: e.state?.toLowerCase(),
 				metaTitle: e.meta_title,
@@ -119,10 +118,10 @@ const start = async () => {
 				slug: e.slug?.split('/clinic/')[1] || e.slug?.split('/clinic/')[0], //cut off unnecessary part of slug
 				name: e['Clinic Name'],
 				longName: e['Long Name Version'],
-				citySlug: cities.find((el) => el.city_name === e.City && el.state === e.State)?.city_slug, //replace city name with city slug
+				citySlug: cities
+					.find((el) => el.city_name === e.City && el.state === e.State)
+					?.city_slug?.split('/')[1], //replace city name with city slug
 				suburbSlug: e['link to clinic suburb page'],
-				postcode: e.Postcode,
-				state: e.State?.toLowerCase(),
 				cityName: e.City,
 				suburbName: e.Suburb,
 				fullAddress: e['Full Address'],
@@ -132,7 +131,8 @@ const start = async () => {
 				typeform: e['Typeform registration link'],
 				website: e.Website,
 				email: e.Email,
-				phone: e.Phone
+				phone: e.Phone,
+				about: e['About Clinic']
 			}))
 			.filter(
 				(e) =>
@@ -141,8 +141,6 @@ const start = async () => {
 					e.longName &&
 					e.citySlug &&
 					e.suburbSlug &&
-					e.postcode &&
-					e.state &&
 					e.cityName &&
 					e.suburbName &&
 					e.fullAddress &&
@@ -152,15 +150,16 @@ const start = async () => {
 			.map((e) => ({
 				slug: e['suburb-slug'],
 				name: e.suburb_name,
-				citySlug: cities.find((el) => el.city_name === e.City && el.state === e.State)?.city_slug,
-				postcode: e.Postcode,
+				citySlug: cities
+					.find((el) => el.city_name === e.City && el.state === e.State)
+					?.city_slug?.split('/')[1],
 				metaTitle: e.meta_title,
 				metaDesc: e.meta_description,
 				h1: e.H1,
 				h2: e.H2,
 				about: e.about_bookphysio
 			}))
-			.filter((e) => e.slug && e.name && e.citySlug && e.postcode)
+			.filter((e) => e.slug && e.name && e.citySlug)
 	}
 
 	const nearbySuburbs: { suburb: string; nearSuburb: string }[] = []
