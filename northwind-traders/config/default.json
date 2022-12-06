@@ -1,0 +1,14 @@
+{
+	"Server": {
+		"port": 3000
+	},
+	"Database": {
+		"HospitalLocation": {
+			"host": "localhost",
+			"port": 5432,
+			"database": "Northwind",
+			"user": "postgres",
+			"password": "This-Is-The-Certified-DB-Password"
+		}
+	}
+}

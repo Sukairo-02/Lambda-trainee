@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "baseUrl": "src",
+    "paths": {
+      "@Routes/*": ["Routes/*"],
+      "@Services/*": ["Services/*"],
+      "@Middleware/*": ["Middleware/*"],
+      "@Util/*": ["Util/*"],
+      "@Database/*": ["Database/*"],
+      "@Globals/*": ["Globals/*"]
+    }
+  }
+}
