@@ -1,4 +1,4 @@
-import { pgTable, integer, serial, text, boolean, foreignKey, date, real } from 'drizzle-orm-pg'
+import { pgTable, integer, serial, text, boolean, foreignKey, date, real, timestamp } from 'drizzle-orm-pg'
 
 export const Category = pgTable('category', {
 	id: serial('id').notNull().primaryKey(),
@@ -86,7 +86,7 @@ export const Territory = pgTable('territory', {
 	regionId: integer('region_id').references(() => Region.id)
 })
 
-export const EmployeeTerritories = pgTable('employee_territory', {
+export const EmployeeTerritory = pgTable('employee_territory', {
 	employeeId: integer('employee_id').references(() => Employee.id),
 	territoryId: integer('territory_id').references(() => Territory.id)
 })
@@ -126,4 +126,11 @@ export const OrderDetails = pgTable('order_details', {
 	unitPrice: real('unit_price').notNull(),
 	quantity: integer('quantity').notNull().default(1),
 	discount: real('discount').notNull().default(0)
+})
+
+export const AdminLogs = pgTable('admin_logs', {
+	id: serial('id').notNull().primaryKey(),
+	query: text('query').notNull(),
+	sender: text('sender').notNull().default('server'),
+	timestamp: timestamp('timestamp').defaultNow()
 })
