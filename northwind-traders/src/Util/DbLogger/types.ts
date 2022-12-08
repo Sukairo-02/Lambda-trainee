@@ -1,7 +1,6 @@
 import { AnyPgTable, SelectResultFields, PgSelectFields, GetTableConfig } from 'drizzle-orm-pg'
 import { PgDelete, PgInsert, PgSelect, PgUpdate } from 'drizzle-orm-pg/queries'
 import { JoinType } from 'drizzle-orm-pg/queries/select.types'
-import { SQLWrapper } from 'drizzle-orm/sql'
 
 type Insert = PgInsert<AnyPgTable, SelectResultFields<PgSelectFields<GetTableConfig<AnyPgTable, 'name'>>>>
 type Select = PgSelect<AnyPgTable, SelectResultFields<PgSelectFields<GetTableConfig<AnyPgTable, 'name'>>>>
