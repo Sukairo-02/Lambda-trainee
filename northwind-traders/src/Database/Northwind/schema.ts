@@ -23,8 +23,12 @@ export const Supplier = pgTable('supplier', {
 export const Product = pgTable('product', {
 	id: serial('id').notNull().primaryKey(),
 	name: text('name').notNull(),
-	supplierId: integer('supplier_id').references(() => Supplier.id),
-	categoryId: integer('category_id').references(() => Category.id),
+	supplierId: integer('supplier_id')
+		.notNull()
+		.references(() => Supplier.id),
+	categoryId: integer('category_id')
+		.notNull()
+		.references(() => Category.id),
 	quantityPerUnit: text('quantity_per_unit').notNull(),
 	unitPrice: real('unit_price').notNull(),
 	inStock: integer('in_stock').notNull().default(0),
@@ -69,7 +73,7 @@ export const Employee = pgTable(
 		homePhone: text('home_phone'),
 		extension: text('extension'),
 		notes: text('notes'),
-		reportsTo: integer('reports_to') //.references(() => Employee.id)
+		reportsTo: integer('reports_to').notNull() //.references(() => Employee.id)
 	},
 	(Employee) => ({
 		reportsSelfref: foreignKey(() => ({
@@ -83,12 +87,18 @@ export const Employee = pgTable(
 export const Territory = pgTable('territory', {
 	id: serial('id').notNull().primaryKey(),
 	description: text('description').notNull(),
-	regionId: integer('region_id').references(() => Region.id)
+	regionId: integer('region_id')
+		.references(() => Region.id)
+		.notNull()
 })
 
 export const EmployeeTerritory = pgTable('employee_territory', {
-	employeeId: integer('employee_id').references(() => Employee.id),
-	territoryId: integer('territory_id').references(() => Territory.id)
+	employeeId: integer('employee_id')
+		.references(() => Employee.id)
+		.notNull(),
+	territoryId: integer('territory_id')
+		.references(() => Territory.id)
+		.notNull()
 })
 
 export const Shipper = pgTable('shipper', {
@@ -108,7 +118,9 @@ export const Order = pgTable('order', {
 	orderDate: date('order_date').notNull().defaultNow(),
 	requiredDate: date('required_date').notNull(),
 	shippedDate: date('shipped_date'),
-	shipperId: integer('shipper_id').references(() => Shipper.id),
+	shipperId: integer('shipper_id')
+		.notNull()
+		.references(() => Shipper.id),
 	freight: real('freight').notNull(),
 	shipName: text('ship_name').notNull(),
 	shipAddress: text('ship_address').notNull(),
@@ -121,8 +133,11 @@ export const Order = pgTable('order', {
 export const OrderDetails = pgTable('order_details', {
 	orderId: integer('orderId')
 		.primaryKey()
-		.references(() => Order.id),
-	productId: integer('product_id').references(() => Product.id),
+		.references(() => Order.id)
+		.notNull(),
+	productId: integer('product_id')
+		.notNull()
+		.references(() => Product.id),
 	unitPrice: real('unit_price').notNull(),
 	quantity: integer('quantity').notNull().default(1),
 	discount: real('discount').notNull().default(0)
