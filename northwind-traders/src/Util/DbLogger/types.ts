@@ -9,7 +9,7 @@ type Update = PgUpdate<AnyPgTable, SelectResultFields<PgSelectFields<GetTableCon
 type Delete = PgDelete<AnyPgTable, SelectResultFields<PgSelectFields<GetTableConfig<AnyPgTable, 'name'>>>>
 type AfterWhere<T extends Insert | Select | Update | Delete> = Omit<T, 'where' | `${JoinType}Join`>
 type AfterFields<T extends Insert | Select | Update | Delete> = Omit<T, 'fields'>
-export type dbOperation =
+export type DbOperation =
 	| Insert
 	| Select
 	| Update
