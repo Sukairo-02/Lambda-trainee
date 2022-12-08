@@ -132,7 +132,6 @@ export const Order = pgTable('order', {
 
 export const OrderDetails = pgTable('order_details', {
 	orderId: integer('orderId')
-		.primaryKey()
 		.references(() => Order.id)
 		.notNull(),
 	productId: integer('product_id')
