@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import Info from '@Services/Info'
+import Info from '@Controllers/Info'
 
 const router = Router()
 

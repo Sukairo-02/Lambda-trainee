@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import Local from '@Services/Local'
+import Local from '@Controllers/Local'
 
 const router = Router()
 

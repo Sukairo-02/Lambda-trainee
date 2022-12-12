@@ -3,6 +3,7 @@
     "baseUrl": "src",
     "paths": {
       "@Routes/*": ["Routes/*"],
+      "@Controllers/*": ["Controllers/*"],
       "@Services/*": ["Services/*"],
       "@Middleware/*": ["Middleware/*"],
       "@Util/*": ["Util/*"],

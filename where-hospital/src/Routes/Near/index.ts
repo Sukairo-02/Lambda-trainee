@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import Near from '@Services/Near'
+import Near from '@Controllers/Near'
 
 const router = Router()
 
