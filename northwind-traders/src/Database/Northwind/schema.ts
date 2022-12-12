@@ -7,7 +7,7 @@ export const Category = pgTable('category', {
 })
 
 export const Supplier = pgTable('supplier', {
-	id: text('id').notNull().primaryKey(),
+	id: serial('id').notNull().primaryKey(),
 	companyName: text('company_name').notNull(),
 	contactName: text('contact_name'),
 	contactTitle: text('contact_title'),
