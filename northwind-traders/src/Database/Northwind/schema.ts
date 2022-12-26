@@ -59,6 +59,7 @@ export const Employee = pgTable(
 	'employee',
 	{
 		id: serial('id').notNull().primaryKey(),
+		reportsTo: integer('reports_to').notNull(), //.references(() => Employee.reportsTo),
 		lastName: text('last_name'),
 		firstName: text('first_name').notNull(),
 		title: text('title').notNull(),
@@ -72,8 +73,7 @@ export const Employee = pgTable(
 		country: text('country'),
 		homePhone: text('home_phone'),
 		extension: text('extension'),
-		notes: text('notes'),
-		reportsTo: integer('reports_to').notNull() //.references(() => Employee.id)
+		notes: text('notes')
 	},
 	(Employee) => ({
 		reportsSelfref: foreignKey(() => ({
