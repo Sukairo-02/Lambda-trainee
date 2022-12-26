@@ -1,7 +1,9 @@
 import * as Boom from '@hapi/boom'
 import { eq, or } from 'drizzle-orm/expressions'
+import { alias } from 'drizzle-orm-pg'
 import Orm from '@Database/Northwind'
 import { dbLogger } from '@Util/DbLogger'
+import '@Globals/express'
 
 import type { RequestHandler } from 'express'
 
@@ -19,6 +21,8 @@ const {
 	Territory
 } = Orm.Tables
 
+const ReportsTo = alias(Employee, 'reports_to')
+
 //Linked:
 // Product: Supplier, Category
 // Employee: Self-link reports-to, Territory
@@ -29,8 +33,8 @@ const {
 class GetData {
 	public Customers = <RequestHandler>(async (req, res, next) => {
 		try {
-			const db = await Orm.Connector.connect()
-			const customers = await dbLogger(db.select(Customer))
+			const db = Orm.Connector
+			const customers = await dbLogger(req.headers.tabUUID)(db.select(Customer))
 
 			if (!customers.length) throw Boom.notFound()
 			return res.json({ customers })
@@ -41,8 +45,10 @@ class GetData {
 
 	public Customer = <RequestHandler<{ id: string }>>(async (req, res, next) => {
 		try {
-			const db = await Orm.Connector.connect()
-			const customers = await dbLogger(db.select(Customer).where(eq(Customer.id, req.params.id)))
+			const db = Orm.Connector
+			const customers = await dbLogger(req.headers.tabUUID)(
+				db.select(Customer).where(eq(Customer.id, req.params.id))
+			)
 
 			if (!customers.length) throw Boom.notFound()
 			return res.json({ customer: customers[0] })
@@ -53,8 +59,8 @@ class GetData {
 
 	public Employees = <RequestHandler>(async (req, res, next) => {
 		try {
-			const db = await Orm.Connector.connect()
-			const employees = await dbLogger(db.select(Employee))
+			const db = Orm.Connector
+			const employees = await dbLogger(req.headers.tabUUID)(db.select(Employee))
 
 			if (!employees.length) throw Boom.notFound()
 			return res.json({ employees })
@@ -65,30 +71,23 @@ class GetData {
 
 	public Employee = <RequestHandler<{ id: string }>>(async (req, res, next) => {
 		try {
-			const db = await Orm.Connector.connect()
-			const employees = await dbLogger(
+			const db = Orm.Connector
+			const employees = await dbLogger(req.headers.tabUUID)(
 				db
 					.select(Employee)
 					.innerJoin(EmployeeTerritory, eq(Employee.id, EmployeeTerritory.employeeId))
 					.innerJoin(Territory, eq(EmployeeTerritory.territoryId, Territory.id))
 					.innerJoin(Region, eq(Territory.regionId, Region.id))
+					.innerJoin(ReportsTo, eq(Employee.reportsTo, ReportsTo.id))
 					.where(eq(Employee.id, Number(req.params.id)))
 			)
 
 			if (!employees.length) throw Boom.notFound()
 
-			const reportsTo = (
-				await dbLogger(db.select(Employee).where(eq(Employee.id, employees[0].employee.reportsTo)))
-			)[0]
-
 			return res.json({
 				employee: {
-					...employees[0].employee,
-					reportsTo: {
-						id: reportsTo.id,
-						firstName: reportsTo.firstName,
-						lastName: reportsTo.lastName
-					},
+					employee: employees[0].employee,
+					reportsTo: employees[0].reports_to.firstName + ' ' + employees[0].reports_to.lastName,
 					territory: employees[0].territory.description,
 					region: employees[0].region.description
 				}
@@ -100,8 +99,8 @@ class GetData {
 
 	public Suppliers = <RequestHandler>(async (req, res, next) => {
 		try {
-			const db = await Orm.Connector.connect()
-			const suppliers = await dbLogger(db.select(Supplier))
+			const db = Orm.Connector
+			const suppliers = await dbLogger(req.headers.tabUUID)(db.select(Supplier))
 
 			if (!suppliers.length) throw Boom.notFound()
 			return res.json({ suppliers })
@@ -112,8 +111,10 @@ class GetData {
 
 	public Supplier = <RequestHandler<{ id: string }>>(async (req, res, next) => {
 		try {
-			const db = await Orm.Connector.connect()
-			const suppliers = await dbLogger(db.select(Supplier).where(eq(Supplier.id, Number(req.params.id))))
+			const db = Orm.Connector
+			const suppliers = await dbLogger(req.headers.tabUUID)(
+				db.select(Supplier).where(eq(Supplier.id, Number(req.params.id)))
+			)
 
 			if (!suppliers.length) throw Boom.notFound()
 			return res.json({ supplier: suppliers[0] })
@@ -124,8 +125,8 @@ class GetData {
 
 	public Products = <RequestHandler>(async (req, res, next) => {
 		try {
-			const db = await Orm.Connector.connect()
-			const products = await dbLogger(db.select(Product))
+			const db = Orm.Connector
+			const products = await dbLogger(req.headers.tabUUID)(db.select(Product))
 
 			if (!products.length) throw Boom.notFound()
 			return res.json({ products })
@@ -136,8 +137,8 @@ class GetData {
 
 	public Product = <RequestHandler<{ id: string }>>(async (req, res, next) => {
 		try {
-			const db = await Orm.Connector.connect()
-			const products = await dbLogger(
+			const db = Orm.Connector
+			const products = await dbLogger(req.headers.tabUUID)(
 				db
 					.select(Product)
 					.innerJoin(Supplier, eq(Product.supplierId, Supplier.id))
@@ -156,8 +157,8 @@ class GetData {
 
 	public Orders = <RequestHandler>(async (req, res, next) => {
 		try {
-			const db = await Orm.Connector.connect()
-			const orders = await dbLogger(db.select(Order))
+			const db = Orm.Connector
+			const orders = await dbLogger(req.headers.tabUUID)(db.select(Order))
 
 			if (!orders.length) throw Boom.notFound()
 			return res.json({ orders })
@@ -168,8 +169,8 @@ class GetData {
 
 	public Order = <RequestHandler<{ id: string }>>(async (req, res, next) => {
 		try {
-			const db = await Orm.Connector.connect()
-			const orders = await dbLogger(
+			const db = Orm.Connector
+			const orders = await dbLogger(req.headers.tabUUID)(
 				db
 					.select(Order)
 					.innerJoin(Customer, eq(Order.customerId, Customer.id))
