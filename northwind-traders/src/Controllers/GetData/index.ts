@@ -21,7 +21,7 @@ const {
 	Territory
 } = Orm.Tables
 
-const ReportsTo = alias(Employee, 'ReportsTo')
+const ReportsTo = alias(Employee, 'reportsTo')
 
 //Linked:
 // Product: Supplier, Category
@@ -87,7 +87,7 @@ class GetData {
 			return res.json({
 				employee: {
 					employee: employees[0].employee,
-					reportsTo: employees[0].ReportsTo.firstName + ' ' + employees[0].ReportsTo.lastName,
+					reportsTo: employees[0].reportsTo.firstName + ' ' + employees[0].reportsTo.lastName,
 					territory: employees[0].territory.description,
 					region: employees[0].region.description
 				}
