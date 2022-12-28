@@ -39,3 +39,5 @@ class Search {
 		return res.json([])
 	})
 }
+
+export = new Search()
