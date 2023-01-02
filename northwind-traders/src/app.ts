@@ -8,7 +8,7 @@ import Search from '@Routes/Search'
 const app = express()
 app.use(express.json())
 app.use('/getData', GetData)
-app.use('/dasboard', Dashboard)
+app.use('/dashboard', Dashboard)
 app.use('/search', Search)
 app.use(ErrorHandler)
 
