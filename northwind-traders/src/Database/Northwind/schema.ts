@@ -107,12 +107,12 @@ export const Shipper = pgTable('shipper', {
 	phone: text('phone').notNull()
 })
 
-export const Order = pgTable('order', {
+export const Order = pgTable('tradeorder', {
 	id: serial('id').notNull().primaryKey(),
 	customerId: text('customer_id')
 		.notNull()
 		.references(() => Customer.id),
-	employeeId: text('employee_id')
+	employeeId: integer('employee_id')
 		.notNull()
 		.references(() => Employee.id),
 	orderDate: date('order_date').notNull().defaultNow(),
