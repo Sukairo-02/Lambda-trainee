@@ -22,6 +22,7 @@ export = {
 				ContactTitle: string
 				Address: string
 				City: string
+				Region: string
 				PostalCode: string
 				Country: string
 				Phone: string
