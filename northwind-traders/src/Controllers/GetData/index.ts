@@ -34,9 +34,8 @@ const ReportsTo = alias(Employee, 'reportsTo')
 class GetData {
 	public Customers = <RequestHandler>(async (req, res, next) => {
 		try {
-			const customers = await dbLogger(req.headers.tabUUID as string, db.select(Customer))
+			const customers = await dbLogger(req.headers['tab-uuid'] as string, db.select(Customer))
 
-			if (!customers.length) throw Boom.notFound()
 			return res.json({ customers })
 		} catch (e) {
 			next(e)
@@ -46,7 +45,7 @@ class GetData {
 	public Customer = <RequestHandler<{ id: string }>>(async (req, res, next) => {
 		try {
 			const customers = await dbLogger(
-				req.headers.tabUUID as string,
+				req.headers['tab-uuid'] as string,
 				db.select(Customer).where(eq(Customer.id, req.params.id))
 			)
 
@@ -59,9 +58,8 @@ class GetData {
 
 	public Employees = <RequestHandler>(async (req, res, next) => {
 		try {
-			const employees = await dbLogger(req.headers.tabUUID as string, db.select(Employee))
+			const employees = await dbLogger(req.headers['tab-uuid'] as string, db.select(Employee))
 
-			if (!employees.length) throw Boom.notFound()
 			return res.json({ employees })
 		} catch (e) {
 			next(e)
@@ -71,7 +69,7 @@ class GetData {
 	public Employee = <RequestHandler<{ id: string }>>(async (req, res, next) => {
 		try {
 			const employees = await dbLogger(
-				req.headers.tabUUID as string,
+				req.headers['tab-uuid'] as string,
 				db
 					.select(Employee)
 					.innerJoin(EmployeeTerritory, eq(Employee.id, EmployeeTerritory.employeeId))
@@ -98,9 +96,8 @@ class GetData {
 
 	public Suppliers = <RequestHandler>(async (req, res, next) => {
 		try {
-			const suppliers = await dbLogger(req.headers.tabUUID as string, db.select(Supplier))
+			const suppliers = await dbLogger(req.headers['tab-uuid'] as string, db.select(Supplier))
 
-			if (!suppliers.length) throw Boom.notFound()
 			return res.json({ suppliers })
 		} catch (e) {
 			next(e)
@@ -110,7 +107,7 @@ class GetData {
 	public Supplier = <RequestHandler<{ id: string }>>(async (req, res, next) => {
 		try {
 			const suppliers = await dbLogger(
-				req.headers.tabUUID as string,
+				req.headers['tab-uuid'] as string,
 				db.select(Supplier).where(eq(Supplier.id, Number(req.params.id)))
 			)
 
@@ -123,9 +120,8 @@ class GetData {
 
 	public Products = <RequestHandler>(async (req, res, next) => {
 		try {
-			const products = await dbLogger(req.headers.tabUUID as string, db.select(Product))
+			const products = await dbLogger(req.headers['tab-uuid'] as string, db.select(Product))
 
-			if (!products.length) throw Boom.notFound()
 			return res.json({ products })
 		} catch (e) {
 			next(e)
@@ -135,7 +131,7 @@ class GetData {
 	public Product = <RequestHandler<{ id: string }>>(async (req, res, next) => {
 		try {
 			const products = await dbLogger(
-				req.headers.tabUUID as string,
+				req.headers['tab-uuid'] as string,
 				db
 					.select(Product)
 					.innerJoin(Supplier, eq(Product.supplierId, Supplier.id))
@@ -152,9 +148,8 @@ class GetData {
 
 	public Orders = <RequestHandler>(async (req, res, next) => {
 		try {
-			const orders = await dbLogger(req.headers.tabUUID as string, db.select(Order))
+			const orders = await dbLogger(req.headers['tab-uuid'] as string, db.select(Order))
 
-			if (!orders.length) throw Boom.notFound()
 			return res.json({ orders })
 		} catch (e) {
 			next(e)
@@ -164,7 +159,7 @@ class GetData {
 	public Order = <RequestHandler<{ id: string }>>(async (req, res, next) => {
 		try {
 			const orders = await dbLogger(
-				req.headers.tabUUID as string,
+				req.headers['tab-uuid'] as string,
 				db
 					.select(Order)
 					.innerJoin(Customer, eq(Order.customerId, Customer.id))

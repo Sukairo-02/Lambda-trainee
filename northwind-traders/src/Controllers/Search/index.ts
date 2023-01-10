@@ -12,7 +12,7 @@ class Search {
 	public Product = <RequestHandler<{ name: string }>>(async (req, res, next) => {
 		try {
 			const products = await dbLogger(
-				req.headers.tabUUID as string,
+				req.headers['tab-uuid'] as string,
 				db.select(Product).where(ilike(Product.name, `%${req.params.name}%`))
 			)
 
@@ -25,7 +25,7 @@ class Search {
 	public Customer = <RequestHandler<{ name: string }>>(async (req, res, next) => {
 		try {
 			const customers = await dbLogger(
-				req.headers.tabUUID as string,
+				req.headers['tab-uuid'] as string,
 				db.select(Customer).where(ilike(Customer.companyName, `%${req.params.name}%`))
 			)
 
