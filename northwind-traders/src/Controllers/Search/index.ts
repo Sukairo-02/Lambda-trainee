@@ -1,4 +1,4 @@
-import { like } from 'drizzle-orm/expressions'
+import { ilike } from 'drizzle-orm/expressions'
 import Orm from '@Database/Northwind'
 import { dbLogger } from '@Util/DbLogger'
 
@@ -13,7 +13,7 @@ class Search {
 		try {
 			const products = await dbLogger(
 				req.headers.tabUUID as string,
-				db.select(Product).where(like(Product.name, `%${req.params.name}%`))
+				db.select(Product).where(ilike(Product.name, `%${req.params.name}%`))
 			)
 
 			return res.json(products)
@@ -26,7 +26,7 @@ class Search {
 		try {
 			const customers = await dbLogger(
 				req.headers.tabUUID as string,
-				db.select(Customer).where(like(Customer.companyName, `%${req.params.name}%`))
+				db.select(Customer).where(ilike(Customer.companyName, `%${req.params.name}%`))
 			)
 
 			return res.json(customers)
