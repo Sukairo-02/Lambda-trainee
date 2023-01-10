@@ -82,7 +82,7 @@ const start = async () => {
 		city: e.City,
 		region: e.Region,
 		postcode: e.PostalCode,
-		county: e.Country,
+		country: e.Country,
 		homePhone: e.HomePhone,
 		extension: e.Extension,
 		notes: e.Notes
