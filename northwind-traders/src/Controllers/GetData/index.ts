@@ -176,7 +176,7 @@ class GetData {
 
 			if (!orders.length) throw Boom.notFound()
 			return res.json({
-				order: orders[0].order,
+				order: orders[0].tradeorder,
 				customer: orders[0].customer,
 				shipper: orders[0].shipper,
 				details: orders.map((e) => ({ ...e.order_details, product: e.product }))
