@@ -134,7 +134,7 @@ class GetData {
 					.select(Product)
 					.innerJoin(Supplier, eq(Product.supplierId, Supplier.id))
 					.innerJoin(Category, eq(Product.categoryId, Category.id))
-					.where(eq(Supplier.id, Number(req.params.id)))
+					.where(eq(Product.id, Number(req.params.id)))
 			)
 
 			if (!products.length) throw Boom.notFound()
