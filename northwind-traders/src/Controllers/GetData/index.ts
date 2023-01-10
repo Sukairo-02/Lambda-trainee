@@ -82,12 +82,10 @@ class GetData {
 			if (!employees.length) throw Boom.notFound()
 
 			return res.json({
-				employee: {
-					employee: employees[0].employee,
-					reportsTo: employees[0].reportsTo.firstName + ' ' + employees[0].reportsTo.lastName,
-					territory: employees[0].territory.description,
-					region: employees[0].region.description
-				}
+				employee: employees[0].employee,
+				reportsTo: employees[0].reportsTo.firstName + ' ' + employees[0].reportsTo.lastName,
+				territory: employees[0].territory.description,
+				region: employees[0].region.description
 			})
 		} catch (e) {
 			next(e)
