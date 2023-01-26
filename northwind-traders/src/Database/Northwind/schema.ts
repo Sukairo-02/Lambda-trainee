@@ -141,10 +141,3 @@ export const OrderDetails = pgTable('order_details', {
 	quantity: integer('quantity').notNull().default(1),
 	discount: real('discount').notNull().default(0)
 })
-
-export const AdminLogs = pgTable('admin_logs', {
-	id: serial('id').notNull().primaryKey(),
-	query: text('query').notNull(),
-	sender: text('sender').notNull().default('server'),
-	timestamp: timestamp('timestamp').defaultNow()
-})

@@ -1,7 +1,6 @@
 import { ilike } from 'drizzle-orm/expressions'
 import Orm from '@Database/Northwind'
 import { dbLogger } from '@Util/DbLogger'
-
 import type { RequestHandler } from 'express'
 
 const db = Orm.Connector
