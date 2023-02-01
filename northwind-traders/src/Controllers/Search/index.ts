@@ -1,6 +1,5 @@
 import { ilike } from 'drizzle-orm/expressions'
 import Orm from '@Database/Northwind'
-import { dbLogger } from '@Util/DbLogger'
 import type { RequestHandler } from 'express'
 
 const db = Orm.Connector
@@ -10,12 +9,10 @@ const { Customer, Product } = Orm.Tables
 class Search {
 	public Product = <RequestHandler<{ name: string }>>(async (req, res, next) => {
 		try {
-			const products = await dbLogger(
-				req.headers['tab-uuid'] as string,
-				db.select(Product).where(ilike(Product.name, `%${req.params.name}%`))
-			)
+			const query = db.select(Product).where(ilike(Product.name, `%${req.params.name}%`))
+			const products = await query
 
-			return res.json(products)
+			return res.json({ products, sequel: query.toSQL() })
 		} catch (e) {
 			next(e)
 		}
@@ -23,12 +20,10 @@ class Search {
 
 	public Customer = <RequestHandler<{ name: string }>>(async (req, res, next) => {
 		try {
-			const customers = await dbLogger(
-				req.headers['tab-uuid'] as string,
-				db.select(Customer).where(ilike(Customer.companyName, `%${req.params.name}%`))
-			)
+			const query = db.select(Customer).where(ilike(Customer.companyName, `%${req.params.name}%`))
+			const customers = await query
 
-			return res.json(customers)
+			return res.json({ customers, sequel: query.toSQL() })
 		} catch (e) {
 			next(e)
 		}
