@@ -1,5 +1,6 @@
 import express from 'express'
 import config from 'config'
+import cors from 'cors'
 
 import InfoController from '@Controllers/Info'
 import LocalController from '@Controllers/Local'
@@ -12,6 +13,7 @@ import errorHandler from '@Util/errorHandler'
 import { ServerConfig } from '@Globals/types'
 
 const app = express()
+app.use(cors())
 app.use(express.json())
 
 new InfoController(app, '/info')
