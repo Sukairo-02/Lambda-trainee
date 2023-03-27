@@ -1,49 +1,73 @@
-import * as Boom from '@hapi/boom'
 import { eq, like } from 'drizzle-orm/expressions'
-import Orm from '@Database/HospitalLocation'
+import { Router } from 'express'
 
-import type { RequestHandler } from 'express'
+import orm from '@Database/HospitalLocation'
+import attachParsers from '@Util/attachParsers'
 
-const { City, Clinic, Suburb, NearbySuburb } = Orm.Tables
+import s from './schema'
 
-class Local {
-	public City = <RequestHandler<{ citySlug: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const clinics = await db.select(Clinic).where(eq(Clinic.citySlug, req.params.citySlug))
+import type LocalControllerHandlers from './types'
 
-			if (!clinics.length) throw Boom.notFound()
+const { Clinic } = orm.tables
+const { db } = orm
+
+class LocalController {
+	constructor(app: Router, path: string) {
+		const router = Router()
+
+		const { city, postcode, suburb } = attachParsers(this.handlers, s)
+
+		router.get('/city/:citySlug', city)
+		router.get('/postcode/:postcode', postcode)
+		router.get('/suburb/:stateSlug/:suburbSlug', suburb)
+
+		app.use(path, router)
+	}
+
+	private handlers: LocalControllerHandlers = {
+		async city(req, res) {
+			const { offset, limit } = req.query
+			const { citySlug } = req.params
+
+			const clinics = await db
+				.select()
+				.from(Clinic)
+				.where(eq(Clinic.citySlug, citySlug))
+				.offset(offset)
+				.limit(limit)
+
 			return res.json({ clinics })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Postcode = <RequestHandler<{ postcode: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const clinics = await db.select(Clinic).where(like(Clinic.suburbSlug, `%-${req.params.postcode}`))
+		async postcode(req, res) {
+			const { offset, limit } = req.query
+			const { postcode } = req.params
 
-			if (!clinics.length) throw Boom.notFound()
+			const clinics = await db
+				.select()
+				.from(Clinic)
+				.where(like(Clinic.suburbSlug, `%-${postcode}`))
+				.offset(offset)
+				.limit(limit)
+
 			return res.json({ clinics })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Suburb = <RequestHandler<{ stateSlug: string; suburbSlug: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const fullSlug = `${req.params.stateSlug.toLowerCase()}/${req.params.suburbSlug.toLowerCase()}`
+		async suburb(req, res) {
+			const { offset, limit } = req.query
+			const { stateSlug, suburbSlug } = req.params
+			const fullSlug = `${stateSlug.toLowerCase()}/${suburbSlug.toLowerCase()}`
 
-			const clinics = await db.select(Clinic).where(eq(Clinic.suburbSlug, fullSlug))
+			const clinics = await db
+				.select()
+				.from(Clinic)
+				.where(eq(Clinic.suburbSlug, fullSlug))
+				.offset(offset)
+				.limit(limit)
 
-			if (!clinics.length) throw Boom.notFound()
 			return res.json({ clinics })
-		} catch (e) {
-			next(e)
 		}
-	})
+	}
 }
 
-export = new Local()
+export = LocalController

@@ -1,24 +1,33 @@
 import express from 'express'
 import config from 'config'
-import ErrorHandler from '@Util/ErrorHandler'
 
-import Info from '@Routes/Info'
-import Local from '@Routes/Local'
-import Near from '@Routes/Near'
+import InfoController from '@Controllers/Info'
+import LocalController from '@Controllers/Local'
+import NearController from '@Controllers/Near'
+
+import orm from '@Database/HospitalLocation'
+
+import errorHandler from '@Util/errorHandler'
+
+import { ServerConfig } from '@Globals/types'
 
 const app = express()
 app.use(express.json())
 
-app.use('/info', Info)
-app.use('/local', Local)
-app.use('/near', Near)
+new InfoController(app, '/info')
+new LocalController(app, '/local')
+new NearController(app, '/near')
 
-app.use(ErrorHandler)
+app.use(errorHandler)
 
-const port = process.env.PORT || config.get<number>('Server.port')
+const serverConfig = config.get<ServerConfig>('Server')
+const port = process.env.PORT || serverConfig.port
 
-function start() {
+async function start() {
 	try {
+		await orm.migrate(orm.db, {
+			migrationsFolder: './db-generated'
+		})
 		app.listen(port, () => console.log(`Server started on port ${port}`))
 	} catch (e) {
 		console.error(e)

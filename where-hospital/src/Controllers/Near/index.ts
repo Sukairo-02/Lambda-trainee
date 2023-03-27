@@ -1,68 +1,80 @@
-import * as Boom from '@hapi/boom'
-import { eq, like, and } from 'drizzle-orm/expressions'
-import Orm from '@Database/HospitalLocation'
+import { eq, like } from 'drizzle-orm/expressions'
+import { Router } from 'express'
 
-import type { RequestHandler } from 'express'
+import orm from '@Database/HospitalLocation'
+import attachParsers from '@Util/attachParsers'
 
-const { City, Clinic, Suburb, NearbySuburb } = Orm.Tables
+import s from './schema'
 
-class Near {
-	public City = <RequestHandler<{ citySlug: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const clinics = (
-				await db
-					.select(City)
-					.innerJoin(Suburb, and(eq(City.slug, Suburb.citySlug))!)
-					.innerJoin(NearbySuburb, eq(Suburb.slug, NearbySuburb.suburb))
-					.innerJoin(Clinic, eq(NearbySuburb.nearSuburb, Clinic.suburbSlug))
-					.where(eq(City.slug, req.params.citySlug))
-			).map((e) => e.clinic)
+import type NearControllerHandlers from './types'
 
-			if (!clinics.length) throw Boom.notFound()
+const { City, Clinic, Suburb, NearbySuburb } = orm.tables
+const { db } = orm
+
+class NearController {
+	constructor(app: Router, path: string) {
+		const router = Router()
+
+		const { city, postcode, suburb } = attachParsers(this.handlers, s)
+
+		router.get('/city/:citySlug', city)
+		router.get('/postcode/:postcode', postcode)
+		router.get('/suburb/:stateSlug/:suburbSlug', suburb)
+
+		app.use(path, router)
+	}
+
+	private handlers: NearControllerHandlers = {
+		async city(req, res) {
+			const { offset, limit } = req.query
+			const { citySlug } = req.params
+
+			const clinics = await db
+				.select({ ...Clinic })
+				.from(City)
+				.innerJoin(Suburb, eq(City.slug, Suburb.citySlug))
+				.innerJoin(NearbySuburb, eq(Suburb.slug, NearbySuburb.suburb))
+				.innerJoin(Clinic, eq(NearbySuburb.nearSuburb, Clinic.suburbSlug))
+				.where(eq(City.slug, citySlug))
+				.offset(offset)
+				.limit(limit)
+
 			return res.json({ clinics })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Postcode = <RequestHandler<{ postcode: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const clinics = (
-				await db
-					.select(Suburb)
-					.innerJoin(NearbySuburb, eq(Suburb.slug, NearbySuburb.suburb))
-					.innerJoin(Clinic, eq(NearbySuburb.nearSuburb, Clinic.suburbSlug))
-					.where(like(Suburb.slug, `%-${req.params.postcode}`))
-			).map((e) => e.clinic)
+		async postcode(req, res) {
+			const { offset, limit } = req.query
+			const { postcode } = req.params
 
-			if (!clinics.length) throw Boom.notFound()
+			const clinics = await db
+				.select({ ...Clinic })
+				.from(Suburb)
+				.innerJoin(NearbySuburb, eq(Suburb.slug, NearbySuburb.suburb))
+				.innerJoin(Clinic, eq(NearbySuburb.nearSuburb, Clinic.suburbSlug))
+				.where(like(Suburb.slug, `%-${postcode}`))
+				.offset(offset)
+				.limit(limit)
+
 			return res.json({ clinics })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Suburb = <RequestHandler<{ stateSlug: string; suburbSlug: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const fullSlug = `${req.params.stateSlug.toLowerCase()}/${req.params.suburbSlug.toLowerCase()}`
+		async suburb(req, res) {
+			const { offset, limit } = req.query
+			const { stateSlug, suburbSlug } = req.params
+			const fullSlug = `${stateSlug.toLowerCase()}/${suburbSlug.toLowerCase()}`
 
-			const clinics = (
-				await db
-					.select(Suburb)
-					.innerJoin(NearbySuburb, eq(Suburb.slug, NearbySuburb.suburb))
-					.innerJoin(Clinic, eq(NearbySuburb.nearSuburb, Clinic.suburbSlug))
-					.where(eq(Suburb.slug, fullSlug))
-			).map((e) => e.clinic)
+			const clinics = await db
+				.select({ ...Clinic })
+				.from(Suburb)
+				.innerJoin(NearbySuburb, eq(Suburb.slug, NearbySuburb.suburb))
+				.innerJoin(Clinic, eq(NearbySuburb.nearSuburb, Clinic.suburbSlug))
+				.where(eq(Suburb.slug, fullSlug))
+				.offset(offset)
+				.limit(limit)
 
-			if (!clinics.length) throw Boom.notFound()
 			return res.json({ clinics })
-		} catch (e) {
-			next(e)
 		}
-	})
+	}
 }
 
-export = new Near()
+export = NearController

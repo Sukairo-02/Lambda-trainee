@@ -1,147 +1,160 @@
 import * as Boom from '@hapi/boom'
-import { eq, like } from 'drizzle-orm/expressions'
-import Orm from '@Database/HospitalLocation'
+import { eq, like, and } from 'drizzle-orm/expressions'
+import { Router } from 'express'
 
-import type { RequestHandler } from 'express'
+import orm from '@Database/HospitalLocation'
 
-const { City, Clinic, Suburb, NearbySuburb } = Orm.Tables
+import attachParsers from '@Util/attachParsers'
 
-class Info {
-	public City = <RequestHandler>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const cities = await db.select(City).fields({ name: City.name, slug: City.slug, state: City.state })
+import s from './schema'
 
-			if (!cities.length) throw Boom.notFound()
-			return res.json({ cities })
-		} catch (e) {
-			next(e)
-		}
-	})
+import type InfoControllerHandlers from './types'
 
-	public CityByState = <RequestHandler<{ stateSlug: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
+const { City, Clinic, Suburb, NearbySuburb } = orm.tables
+const { db } = orm
+
+class InfoController {
+	constructor(app: Router, path: string) {
+		const router = Router()
+
+		const { city, cityByState, citySlug, suburb, suburbByState, suburbSlug, nearbySuburbs, clinic, clinicSlug } =
+			attachParsers(this.handlers, s)
+
+		router.get('/city', city)
+		router.get('/city/byState/:stateSlug', cityByState)
+		router.get('/city/:citySlug', citySlug)
+		router.get('/suburb', suburb)
+		router.get('/suburb/:stateSlug', suburbByState)
+		router.get('/suburb/:stateSlug/:suburbSlug', suburbSlug)
+		router.get('/nearbySuburbs/:stateSlug/:suburbSlug', nearbySuburbs)
+		router.get('/clinic', clinic)
+		router.get('/clinic/:clinicSlug', clinicSlug)
+
+		app.use(path, router)
+	}
+
+	private handlers: InfoControllerHandlers = {
+		async city(req, res) {
+			const { offset, limit } = req.query
+
 			const cities = await db
-				.select(City)
-				.fields({ name: City.name, slug: City.slug, state: City.state })
-				.where(eq(City.state, req.params.stateSlug.toLowerCase()))
+				.select({ name: City.name, slug: City.slug, state: City.state })
+				.from(City)
+				.offset(offset)
+				.limit(limit)
 
-			if (!cities.length) throw Boom.notFound()
 			return res.json({ cities })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public CitySlug = <RequestHandler<{ citySlug: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const cities = await db.select(City).where(eq(City.slug, req.params.citySlug))
+		async cityByState(req, res) {
+			const { offset, limit } = req.query
+			const { stateSlug } = req.params
 
-			if (!cities.length) throw Boom.notFound()
-			return res.json({ city: cities[0] })
-		} catch (e) {
-			next(e)
-		}
-	})
+			const cities = await db
+				.select({ name: City.name, slug: City.slug, state: City.state })
+				.from(City)
+				.where(eq(City.state, stateSlug.toLowerCase()))
+				.offset(offset)
+				.limit(limit)
 
-	public Suburb = <RequestHandler>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
+			return res.json({ cities })
+		},
+
+		async citySlug(req, res) {
+			const { citySlug } = req.params
+
+			const [city] = await db.select().from(City).where(eq(City.slug, citySlug))
+
+			if (!city) throw Boom.notFound()
+			return res.json({ city })
+		},
+
+		async suburb(req, res) {
+			const { offset, limit } = req.query
+
 			const suburbs = await db
-				.select(Suburb)
-				.fields({ name: Suburb.name, slug: Suburb.slug, city: Suburb.citySlug })
+				.select({ name: Suburb.name, slug: Suburb.slug, city: Suburb.citySlug })
+				.from(Suburb)
+				.offset(offset)
+				.limit(limit)
 
-			if (!suburbs.length) throw Boom.notFound()
 			return res.json({ suburbs })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public SuburbByState = <RequestHandler<{ stateSlug: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
+		async suburbByState(req, res) {
+			const { offset, limit } = req.query
+			const { stateSlug } = req.params
+
 			const suburbs = await db
-				.select(Suburb)
-				.fields({ name: Suburb.name, slug: Suburb.slug, city: Suburb.citySlug })
-				.where(like(Suburb.slug, `${req.params.stateSlug.toLowerCase()}/%`))
+				.select({ name: Suburb.name, slug: Suburb.slug, city: Suburb.citySlug })
+				.from(Suburb)
+				.where(like(Suburb.slug, `${stateSlug.toLowerCase()}/%`))
+				.offset(offset)
+				.limit(limit)
 
-			if (!suburbs.length) throw Boom.notFound()
 			return res.json({ suburbs })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public SuburbSlug = <RequestHandler<{ stateSlug: string; suburbSlug: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const fullSlug = `${req.params.stateSlug.toLowerCase()}/${req.params.suburbSlug.toLowerCase()}`
+		async suburbSlug(req, res) {
+			const { stateSlug, suburbSlug } = req.params
+			const fullSlug = `${stateSlug.toLowerCase()}/${suburbSlug.toLowerCase()}`
 
-			const suburbs = await db.select(Suburb).where(eq(Suburb.slug, fullSlug))
+			const [suburb] = await db.select().from(Suburb).where(eq(Suburb.slug, fullSlug))
 
-			if (!suburbs.length) throw Boom.notFound()
-			return res.json({ suburb: suburbs[0] })
-		} catch (e) {
-			next(e)
-		}
-	})
+			if (!suburb) throw Boom.notFound()
+			return res.json({ suburb })
+		},
 
-	public NearbySuburbs = <RequestHandler<{ stateSlug: string; suburbSlug: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const fullSlug = `${req.params.stateSlug.toLowerCase()}/${req.params.suburbSlug.toLowerCase()}`
+		async nearbySuburbs(req, res) {
+			const { offset, limit } = req.query
+			const { stateSlug, suburbSlug } = req.params
+			const fullSlug = `${stateSlug.toLowerCase()}/${suburbSlug.toLowerCase()}`
 
-			const suburbs = (
-				await db
-					.select(NearbySuburb)
-					.innerJoin(Suburb, eq(NearbySuburb.nearSuburb, Suburb.slug))
-					.where(eq(NearbySuburb.suburb, fullSlug))
-			)
-				.map((e) => ({ name: e.suburb.name, slug: e.suburb.slug, city: e.suburb.citySlug }))
-				.filter((e) => e.slug !== fullSlug)
+			const suburbs = await db
+				.select({
+					name: Suburb.name,
+					slug: Suburb.slug,
+					city: Suburb.citySlug
+				})
+				.from(NearbySuburb)
+				.innerJoin(Suburb, eq(NearbySuburb.nearSuburb, Suburb.slug))
+				.where(and(eq(NearbySuburb.suburb, fullSlug), eq(Suburb.slug, fullSlug)))
+				.offset(offset)
+				.limit(limit)
 
-			if (!suburbs.length) throw Boom.notFound()
 			return res.json({ suburbs })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Clinic = <RequestHandler>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const clinics = await db.select(Clinic).fields({
-				slug: Clinic.slug,
-				name: Clinic.name,
-				longName: Clinic.longName,
-				citySlug: Clinic.citySlug,
-				suburbSlug: Clinic.suburbSlug,
-				city: Clinic.cityName,
-				suburb: Clinic.suburbName,
-				pms: Clinic.pms
-			})
+		async clinic(req, res) {
+			const { offset, limit } = req.query
 
-			if (!clinics.length) throw Boom.notFound()
+			const clinics = await db
+				.select({
+					slug: Clinic.slug,
+					name: Clinic.name,
+					longName: Clinic.longName,
+					citySlug: Clinic.citySlug,
+					suburbSlug: Clinic.suburbSlug,
+					city: Clinic.cityName,
+					suburb: Clinic.suburbName,
+					pms: Clinic.pms
+				})
+				.from(Clinic)
+				.offset(offset)
+				.limit(limit)
+
 			return res.json({ clinics })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public ClinicSlug = <RequestHandler<{ clinicSlug: string }>>(async (req, res, next) => {
-		try {
-			const db = await Orm.Connector.connect()
-			const clinics = await db.select(Clinic).where(eq(Clinic.slug, req.params.clinicSlug))
+		async clinicSlug(req, res) {
+			const { clinicSlug } = req.params
 
-			if (!clinics.length) throw Boom.notFound()
-			return res.json({ clinic: clinics[0] })
-		} catch (e) {
-			next(e)
+			const [clinic] = await db.select().from(Clinic).where(eq(Clinic.slug, clinicSlug))
+
+			if (!clinic) throw Boom.notFound()
+			return res.json({ clinic })
 		}
-	})
+	}
 }
 
-export = new Info()
+export = InfoController

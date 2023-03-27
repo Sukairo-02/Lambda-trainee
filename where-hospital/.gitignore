@@ -1,4 +1,3 @@
 dist
 .pack
 config/production.json
-db-generated

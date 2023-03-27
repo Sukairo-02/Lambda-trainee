@@ -1,22 +1,18 @@
-import { PgConnector } from 'drizzle-orm-pg'
+import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import config from 'config'
+import { migrate } from 'drizzle-orm/node-postgres/migrator'
 
-import { Suburb, City, Clinic, NearbySuburb } from './Schema'
+import * as Schema from './schema'
 
-import type { DatabaseConfig } from './types'
+import type { DatabaseConfig } from '@Globals/types'
 
 const dbConfig = config.get<DatabaseConfig>('Database.HospitalLocation')
-
 const pool = new Pool(dbConfig)
-const connector = new PgConnector(pool)
+const database = drizzle(pool)
 
 export default {
-	Tables: {
-		Suburb,
-		City,
-		Clinic,
-		NearbySuburb
-	},
-	Connector: connector
+	db: database,
+	tables: Schema,
+	migrate
 }
