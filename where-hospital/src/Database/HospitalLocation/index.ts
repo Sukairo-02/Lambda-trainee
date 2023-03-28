@@ -3,7 +3,7 @@ import { Pool } from 'pg'
 import config from 'config'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 
-import * as Schema from './schema'
+import * as schema from './schema'
 
 import type { DatabaseConfig } from '@Globals/types'
 
@@ -13,6 +13,6 @@ const database = drizzle(pool)
 
 export default {
 	db: database,
-	tables: Schema,
+	tables: schema,
 	migrate
 }
