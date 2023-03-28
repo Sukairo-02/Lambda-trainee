@@ -1,37 +1,59 @@
 import { ilike } from 'drizzle-orm/expressions'
-import Orm from '@Database/Northwind'
-import type { RequestHandler } from 'express'
+import { Router } from 'express'
 
-const db = Orm.Connector
+import orm from '@Database/Northwind'
 
-const { Customer, Product } = Orm.Tables
+import attachParsers from '@Util/attachParsers'
 
-class Search {
-	public Product = <RequestHandler<{ name: string }>>(async (req, res, next) => {
-		try {
-			const query = db.select(Product).where(ilike(Product.name, `%${req.params.name}%`))
+import s from './schema'
+import SearchControllerHandlers from './types'
+
+const { Customer, Product } = orm.tables
+const { db } = orm
+
+class SearchController {
+	constructor(app: Router, path: string) {
+		const router = Router()
+
+		const { product, customer, emptyQuery } = attachParsers(this.handlers, s)
+
+		router.get('/customers/:name', customer)
+		router.get('/products/:name', product)
+		router.get('/customers', emptyQuery)
+		router.get('/products', emptyQuery)
+
+		app.use(path, router)
+	}
+
+	private handlers: SearchControllerHandlers = {
+		async product(req, res) {
+			const { name } = req.params
+
+			const query = db
+				.select()
+				.from(Product)
+				.where(ilike(Product.name, `%${name}%`))
 			const products = await query
 
 			return res.json({ products, sequel: query.toSQL() })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Customer = <RequestHandler<{ name: string }>>(async (req, res, next) => {
-		try {
-			const query = db.select(Customer).where(ilike(Customer.companyName, `%${req.params.name}%`))
+		async customer(req, res) {
+			const { name } = req.params
+
+			const query = db
+				.select()
+				.from(Customer)
+				.where(ilike(Customer.companyName, `%${name}%`))
 			const customers = await query
 
 			return res.json({ customers, sequel: query.toSQL() })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public EmptyQuery = <RequestHandler<{ name: string }>>(async (req, res, next) => {
-		return res.json([])
-	})
+		async emptyQuery(req, res) {
+			return res.json([])
+		}
+	}
 }
 
-export = new Search()
+export = SearchController

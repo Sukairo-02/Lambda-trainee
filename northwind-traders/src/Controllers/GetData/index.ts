@@ -1,11 +1,15 @@
 import * as Boom from '@hapi/boom'
+import { Router } from 'express'
 import { eq } from 'drizzle-orm/expressions'
-import { alias } from 'drizzle-orm-pg'
-import Orm from '@Database/Northwind'
+import { alias } from 'drizzle-orm/pg-core'
 
-import type { RequestHandler } from 'express'
+import orm from '@Database/Northwind'
 
-const db = Orm.Connector
+import attachParsers from '@Util/attachParsers'
+
+import s from './schema'
+
+import type GetDataControllerHandlers from './types'
 
 const {
 	Category,
@@ -19,161 +23,176 @@ const {
 	Shipper,
 	Supplier,
 	Territory
-} = Orm.Tables
+} = orm.tables
+const { db } = orm
 
 const ReportsTo = alias(Employee, 'reportsTo')
 
-//Linked:
-// Product: Supplier, Category
-// Employee: Self-link reports-to, Territory
-// Territory: region
-// Order: Customer, Employee, Shipper
-// OrderDetails: Order, Product
+class GetDataController {
+	constructor(app: Router, path: string) {
+		const router = Router()
 
-class GetData {
-	public Customers = <RequestHandler>(async (req, res, next) => {
-		try {
-			const query = db.select(Customer)
+		const { customers, customer, employees, employee, suppliers, supplier, products, product, orders, order } =
+			attachParsers(this.handlers, s)
+
+		router.get('/customers', customers)
+		router.get('/customer/:id', customer)
+		router.get('/employees', employees)
+		router.get('/employee/:id', employee)
+		router.get('/suppliers', suppliers)
+		router.get('/supplier/:id', supplier)
+		router.get('/products', products)
+		router.get('/product/:id', product)
+		router.get('/orders', orders)
+		router.get('/order/:id', order)
+
+		app.use(path, router)
+	}
+
+	private handlers: GetDataControllerHandlers = {
+		async customers(req, res) {
+			const { offset, limit } = req.query
+
+			const query = db.select().from(Customer).offset(offset).limit(limit)
+
 			const customers = await query
 
 			return res.json({ customers, sequel: query.toSQL() })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Customer = <RequestHandler<{ id: string }>>(async (req, res, next) => {
-		try {
-			const query = db.select(Customer).where(eq(Customer.id, req.params.id))
-			const customers = await query
+		async customer(req, res) {
+			const { id } = req.params
 
-			if (!customers.length) throw Boom.notFound()
-			return res.json({ customer: customers[0], sequel: query.toSQL() })
-		} catch (e) {
-			next(e)
-		}
-	})
+			const query = db.select().from(Customer).where(eq(Customer.id, id))
 
-	public Employees = <RequestHandler>(async (req, res, next) => {
-		try {
-			const query = db.select(Employee)
+			const [customer] = await query
+			if (!customer) throw Boom.notFound()
+
+			return res.json({ customer, sequel: query.toSQL() })
+		},
+
+		async employees(req, res) {
+			const { offset, limit } = req.query
+
+			const query = db.select().from(Employee).offset(offset).limit(limit)
+
 			const employees = await query
 
 			return res.json({ employees, sequel: query.toSQL() })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Employee = <RequestHandler<{ id: string }>>(async (req, res, next) => {
-		try {
+		async employee(req, res) {
+			const { id } = req.params
+
 			const query = db
-				.select(Employee)
+				.select()
+				.from(Employee)
 				.innerJoin(EmployeeTerritory, eq(Employee.id, EmployeeTerritory.employeeId))
 				.innerJoin(Territory, eq(EmployeeTerritory.territoryId, Territory.id))
 				.innerJoin(Region, eq(Territory.regionId, Region.id))
 				.innerJoin(ReportsTo, eq(Employee.reportsTo, ReportsTo.id))
-				.where(eq(Employee.id, Number(req.params.id)))
-			const employees = await query
+				.where(eq(Employee.id, Number(id)))
 
-			if (!employees.length) throw Boom.notFound()
+			const [{ employee, reportsTo, territory, region }] = await query
+			if (!employee) throw Boom.notFound()
+
+			const abs = query.toSQL()
 
 			return res.json({
-				employee: employees[0].employee,
-				reportsTo: employees[0].reportsTo.firstName + ' ' + employees[0].reportsTo.lastName,
-				territory: employees[0].territory.description,
-				region: employees[0].region.description,
+				employee,
+				reportsTo,
+				territory,
+				region,
 				sequel: query.toSQL()
 			})
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Suppliers = <RequestHandler>(async (req, res, next) => {
-		try {
-			const query = db.select(Supplier)
+		async suppliers(req, res) {
+			const { offset, limit } = req.query
+
+			const query = db.select().from(Supplier).offset(offset).limit(limit)
 			const suppliers = await query
 
 			return res.json({ suppliers, sequel: query.toSQL() })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Supplier = <RequestHandler<{ id: string }>>(async (req, res, next) => {
-		try {
-			const query = db.select(Supplier).where(eq(Supplier.id, Number(req.params.id)))
-			const suppliers = await query
+		async supplier(req, res) {
+			const { id } = req.params
 
-			if (!suppliers.length) throw Boom.notFound()
-			return res.json({ supplier: suppliers[0], sequel: query.toSQL() })
-		} catch (e) {
-			next(e)
-		}
-	})
+			const query = db
+				.select()
+				.from(Supplier)
+				.where(eq(Supplier.id, Number(id)))
 
-	public Products = <RequestHandler>(async (req, res, next) => {
-		try {
-			const query = db.select(Product)
+			const [supplier] = await query
+			if (!supplier) throw Boom.notFound()
+
+			return res.json({ supplier, sequel: query.toSQL() })
+		},
+
+		async products(req, res) {
+			const { offset, limit } = req.query
+
+			const query = db.select().from(Product).offset(offset).limit(limit)
 			const products = await query
 
 			return res.json({ products, sequel: query.toSQL() })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Product = <RequestHandler<{ id: string }>>(async (req, res, next) => {
-		try {
+		async product(req, res) {
+			const { id } = req.params
+
 			const query = db
-				.select(Product)
+				.select()
+				.from(Product)
 				.innerJoin(Supplier, eq(Product.supplierId, Supplier.id))
 				.innerJoin(Category, eq(Product.categoryId, Category.id))
-				.where(eq(Product.id, Number(req.params.id)))
+				.where(eq(Product.id, Number(id)))
+
 			const products = await query
-
 			if (!products.length) throw Boom.notFound()
-			return res.json({ product: products[0], sequel: query.toSQL() })
-		} catch (e) {
-			next(e)
-		}
-	})
 
-	public Orders = <RequestHandler>(async (req, res, next) => {
-		try {
-			const query = db.select(Order)
+			const [{ category, product, supplier }] = products
+
+			return res.json({ category, product, supplier, sequel: query.toSQL() })
+		},
+
+		async orders(req, res) {
+			const { offset, limit } = req.query
+
+			const query = db.select().from(Order).offset(offset).limit(limit)
 			const orders = await query
 
 			return res.json({ orders, sequel: query.toSQL() })
-		} catch (e) {
-			next(e)
-		}
-	})
+		},
 
-	public Order = <RequestHandler<{ id: string }>>(async (req, res, next) => {
-		try {
+		async order(req, res) {
+			const { id } = req.params
+
 			const query = db
-				.select(Order)
+				.select()
+				.from(Order)
 				.innerJoin(Customer, eq(Order.customerId, Customer.id))
 				.innerJoin(Shipper, eq(Order.shipperId, Shipper.id))
 				.innerJoin(OrderDetails, eq(Order.id, OrderDetails.orderId))
 				.innerJoin(Product, eq(OrderDetails.productId, Product.id))
-				.where(eq(Order.id, Number(req.params.id)))
-			const orders = await query
+				.where(eq(Order.id, Number(id)))
 
+			const orders = await query
 			if (!orders.length) throw Boom.notFound()
+
+			const [{ tradeorder: order, customer, shipper }] = orders
+			const details = orders.map((e) => ({ ...e.order_details, product: e.product }))
+
 			return res.json({
-				order: orders[0].tradeorder,
-				customer: orders[0].customer,
-				shipper: orders[0].shipper,
-				details: orders.map((e) => ({ ...e.order_details, product: e.product })),
+				order,
+				customer,
+				shipper,
+				details,
 				sequel: query.toSQL()
 			})
-		} catch (e) {
-			next(e)
 		}
-	})
+	}
 }
 
-export = new GetData()
+export = GetDataController

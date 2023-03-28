@@ -6,8 +6,8 @@
 	"scripts": {
 		"test": "nodemon src/app.ts",
 		"pack": "webpack",
-		"generate-sql": "rimraf db-generated && drizzle-kit generate",
-		"parse-database": "ts-node src/Dev/parseData.ts"
+		"generate-sql": "drizzle-kit generate:pg",
+		"parse-database": "ts-node src/Dev/parseData"
 	},
 	"repository": {
 		"type": "git",
@@ -22,24 +22,24 @@
 	"dependencies": {
 		"@hapi/boom": "^10.0.0",
 		"config": "^3.3.8",
-		"drizzle-orm": "^0.14.2",
-		"drizzle-orm-pg": "^0.14.3",
+		"cors": "^2.8.5",
+		"drizzle-orm": "^0.23.2",
 		"express": "^4.18.2",
 		"lodash": "^4.17.21",
 		"module-alias": "^2.2.2",
-		"pg": "^8.8.0",
+		"pg": "^8.10.0",
 		"registry.npmjs.org": "^1.0.1",
 		"zod": "^3.19.1"
 	},
 	"devDependencies": {
 		"@types/config": "^3.3.0",
+		"@types/cors": "^2.8.13",
 		"@types/express": "^4.17.14",
-		"@types/pg": "^8.6.5",
+		"@types/pg": "^8.6.6",
 		"csvtojson": "^2.0.10",
-		"drizzle-kit": "^0.13.0",
+		"drizzle-kit": "^0.17.1",
 		"fork-ts-checker-webpack-plugin": "^7.2.13",
 		"nodemon": "^2.0.20",
-		"rimraf": "^3.0.2",
 		"ts-loader": "^9.4.1",
 		"ts-node": "^10.9.1",
 		"tsconfig-paths": "^4.1.0",

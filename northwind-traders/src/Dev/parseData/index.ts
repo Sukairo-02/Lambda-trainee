@@ -1,8 +1,8 @@
-import readCsvs from './readCsvs'
-import Orm from '@Database/Northwind'
+import readCsvs from '@Dev/readCsvs'
+import orm from '@Database/Northwind'
 import { eq } from 'drizzle-orm/expressions'
 
-const db = Orm.Connector
+const { db } = orm
 
 const {
 	Category,
@@ -16,7 +16,7 @@ const {
 	Shipper,
 	Supplier,
 	Territory
-} = Orm.Tables
+} = orm.tables
 
 const start = async () => {
 	const categories = (await readCsvs.Category()).map((e) => ({
@@ -132,6 +132,10 @@ const start = async () => {
 
 	const employeesNoReportsTo = employees.map((e) => ({ ...e, reportsTo: employees[0].reportsTo }))
 
+	await orm.migrate(db, {
+		migrationsFolder: './db-generated'
+	})
+
 	await db.delete(OrderDetails)
 	await db.delete(Order)
 	await db.delete(EmployeeTerritory)
@@ -144,17 +148,17 @@ const start = async () => {
 	await db.delete(Shipper)
 	await db.delete(Supplier)
 
-	await db.insert(Supplier).values(...suppliers)
-	await db.insert(Shipper).values(...shippers)
-	await db.insert(Category).values(...categories)
-	await db.insert(Product).values(...products)
-	await db.insert(Customer).values(...customers)
-	await db.insert(Region).values(...regions)
-	await db.insert(Territory).values(...territories)
-	await db.insert(Employee).values(...employeesNoReportsTo)
-	await db.insert(EmployeeTerritory).values(...employeeTerritories)
-	await db.insert(Order).values(...orders)
-	await db.insert(OrderDetails).values(...orderDetails)
+	await db.insert(Supplier).values(suppliers)
+	await db.insert(Shipper).values(shippers)
+	await db.insert(Category).values(categories)
+	await db.insert(Product).values(products)
+	await db.insert(Customer).values(customers)
+	await db.insert(Region).values(regions)
+	await db.insert(Territory).values(territories)
+	await db.insert(Employee).values(employeesNoReportsTo)
+	await db.insert(EmployeeTerritory).values(employeeTerritories)
+	await db.insert(Order).values(orders)
+	await db.insert(OrderDetails).values(orderDetails)
 
 	for (const e of employees) {
 		await db.update(Employee).set({ reportsTo: e.reportsTo }).where(eq(Employee.id, e.id))

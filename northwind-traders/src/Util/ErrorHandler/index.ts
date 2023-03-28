@@ -4,7 +4,18 @@ import type { ErrorRequestHandler } from 'express'
 
 export = <ErrorRequestHandler>((err, req, res, next) => {
 	if (isBoom(err)) {
-		return res.status((<Boom>err).output.statusCode).json({ message: (<Boom>err).message })
+		const { data, message } = <Boom>err
+
+		const response = {
+			message: message ?? undefined,
+			data: data ?? undefined
+		}
+
+		return res.status((<Boom>err).output.statusCode).json(response)
+	}
+
+	if (err.statusCode && !Number.isNaN(err.statusCode)) {
+		return res.status(err.statusCode).json({ message: err.message ?? 'Unknown error occured... Try again later' })
 	}
 
 	console.error('Error:\n')

@@ -1,16 +1,18 @@
-import { drizzle } from 'drizzle-orm-pg/node'
+import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import config from 'config'
-import * as Schema from './schema'
+import { migrate } from 'drizzle-orm/node-postgres/migrator'
 
-import type { DatabaseConfig } from './types'
+import * as schema from './schema'
 
-const dbConfig = config.get<DatabaseConfig>('Database.HospitalLocation')
+import type { DatabaseConfig } from '@Globals/types'
 
+const dbConfig = config.get<DatabaseConfig>('Database.Northwind')
 const pool = new Pool(dbConfig)
-const connector = drizzle(pool)
+const database = drizzle(pool)
 
 export default {
-	Tables: Schema,
-	Connector: connector
+	db: database,
+	tables: schema,
+	migrate
 }

@@ -15,7 +15,8 @@
     "noUnusedParameters": false,
     "removeComments": true,
     "sourceMap": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "noErrorTruncation":  true
   },
   "include": ["src/**/*.ts"],
   "exclude": [
